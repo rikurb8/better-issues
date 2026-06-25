@@ -1,378 +1,273 @@
-# MVP Plan: SolidJS + NestJS GitHub Work Hub
+# MVP Plan: SolidStart GitHub Work Hub
 
 ## Context
 
-The repository is currently empty. The goal is to plan an open-source MVP for a SolidJS frontend and NestJS backend that uses GitHub as the source of truth for repositories, issues, pull requests, comments, and related workflow data. All GitHub API implementation should use Octokit, specifically https://github.com/octokit/octokit.js as the foundation for REST/GraphQL access, auth, pagination, and errors.
+Build an open-source, Docker Compose-friendly app for an agentic developer managing coding-agent work through GitHub issues, pull requests, and comments.
 
-The product direction is **Linear meets GitHub Lite** for an agentic developer who manages coding-agent work through GitHub issues, pull requests, and comments. The app should feel fast, keyboard-friendly, minimal, and workflow-oriented like Linear, while preserving the familiar GitHub issue/PR data model. It should make it easy to discourse with AI agents, assign work, review outcomes, and keep GitHub as the operational source of truth.
+Product vibe: **Linear meets GitHub Lite**. The app should feel fast, minimal, full-width, keyboard-friendly, and workflow-oriented like Linear, while using GitHub as the durable source of truth for repositories, issues, PRs, comments, labels, and agent coordination state.
 
-## Approach
+Important decisions:
 
-Recommended MVP direction:
+- App framework: **SolidStart full-stack app** using https://docs.solidjs.com/solid-start/getting-started.
+- Design system/component approach: **custom Tailwind CSS design system + Kobalte headless Solid primitives**.
+  - Rationale: best fit for a polished Linear-like product because Kobalte provides accessible Solid-native primitives without forcing a visual style, while Tailwind/CSS variables let us build a distinctive minimal GitHub Lite interface.
+  - Use Kobalte for dialogs, dropdowns, menus, comboboxes, tabs, tooltips, popovers, select, and command-style interactions.
+  - Use `lucide-solid` for icons and a small internal component layer for buttons, cards, timeline items, labels, inputs, modals, and list rows.
+  - Avoid a heavy prebuilt visual component library for MVP because it will fight the desired Linear x GitHub Lite aesthetic.
+- Backend/server layer: SolidStart server functions/API routes, not NestJS.
+- GitHub client: **Octokit via https://github.com/octokit/octokit.js** with GitHub GraphQL as the primary data access path; REST only for operations that are missing, awkward, or more reliable through REST.
+- Auth: no separate app auth. Locally paste a fine-grained GitHub token first; OAuth Device Flow can be added later.
+- Storage: no PostgreSQL in MVP. Use SQLite/local cache only for selected repos, UI preferences, Pi job status/logs, and recomputable summaries.
+- Durable backend: GitHub.
+- Pi Agent: call Pi SDK for read/analyze/respond actions and post useful results back to GitHub.
+- Non-goals for MVP: code browsing, code diffs, full GitHub clone, GitHub App install flow, multi-user SaaS auth, autonomous code-writing jobs.
 
-- Build a Docker Compose-friendly monorepo with separate apps for:
-  - SolidJS web client as a Vite SPA for the simplest high-quality UI shell.
-  - NestJS API server.
-  - SQLite file/volume for local ephemeral cache/jobs/preferences only if needed; avoid PostgreSQL for MVP because GitHub is the durable backend.
-- Use a local-only GitHub credential flow rather than separate app auth.
-  - No separate user accounts, orgs, passwords, or app ownership model.
-  - Whoever connects to GitHub in the local app session owns the current running instance.
-  - Logout clears local session/credential/cache state.
-- Recommended MVP credential options:
-  - Primary and first implementation: paste a GitHub fine-grained personal access token for fastest Docker Compose/self-hosted setup.
-  - Follow-up polish: GitHub OAuth Device Flow for “Login with GitHub” without building separate auth.
-  - Defer OAuth web flow and GitHub App installation flow until webhooks, org-scale permissions, or multi-user hosted deployment become important.
-- Treat GitHub as the source of truth for all durable actions/state:
-  - repositories
-  - issues
-  - pull requests
-  - issue/PR comments
-  - labels, milestones, assignees, issue state
-  - agent assignment/status conventions represented through labels/comments/issue body sections where possible
-- Keep local storage ephemeral and convenience-oriented only:
-  - active GitHub credential/session
-  - selected repositories and filters
-  - Pi SDK credentials/configuration for the local instance
-  - short-lived Pi job records/logs for observability, retry, and cancellation
-  - optional local cache for API responsiveness/rate limits
-  - optional temporary summaries/attention flags that can be recomputed
-- Focus the first MVP on creating, reading, editing, discussing, coordinating issue/PR work, and invoking Pi SDK actions that read GitHub context and post results back to GitHub.
-- Make the UI feel like **Linear meets GitHub Lite**:
-  - fast command-center style workflow for repo/issue/PR navigation
-  - clean, minimal, full-width issue/PR reader
-  - repository picker
-  - issue/PR lists with Linear-like density, keyboard shortcuts, quick filters, and clear status/priority signals
-  - issue comments
-  - PR conversation/review comments/check summary
-  - GitHub-like markdown rendering
-  - no source-code browsing or code diff viewer in the first pass
+---
 
-## Outside Review and Simplification Decisions
+## Issue 1 — Project Foundation, Docker Compose, GitHub Connection, and Octokit GraphQL Layer
 
-To keep quality high without overbuilding, the MVP should be **smaller in backend surface area and more intentional in UX**:
+### What is being done
 
-- Do **not** build a full GitHub clone. Build the best issue/PR conversation cockpit for agentic work.
-- Do **not** start with PostgreSQL, multi-user auth, GitHub App installs, code browsing, or diff rendering.
-- Use GitHub as the durable backend and SQLite/local cache only for fast UI state, selected repos, and Pi job observability.
-- Start with pasted fine-grained GitHub token; add OAuth Device Flow after the core experience feels excellent.
-- Prefer Octokit REST endpoints first; use GraphQL only when it materially simplifies a combined view.
-- Keep Pi SDK scope to read/analyze/respond jobs first; defer repo checkout/code-writing jobs.
-- Invest UI effort in a few polished surfaces:
-  - repo picker
-  - unified inbox
-  - repo issue/PR lists
-  - issue/PR reader
-  - markdown renderer
-  - Pi action bar/job result flow
-- The product quality bar should come from speed, clarity, keyboard navigation, typography, markdown fidelity, and low-friction Pi actions, not from feature breadth.
+Create the SolidStart full-stack app foundation and GitHub data layer. The user can run the project locally, connect GitHub with a token, fetch visible repositories, select repos, and read/write GitHub issue/PR data through SolidStart server functions backed by Octokit GraphQL.
 
-## MVP Scope Proposal
+### How
 
-### Core user flows
+- Create a simplified full-stack structure:
+  - `apps/app` — SolidStart app containing UI, routes, server functions, and API endpoints.
+  - `packages/shared` — shared TypeScript types/schemas only if needed.
+- Add `docker-compose.yml` for local development.
+- Add `.env.example` documenting GitHub token and Pi SDK environment variables.
+- Implement local session handling:
+  - paste fine-grained GitHub token in setup UI.
+  - store token only for local running instance.
+  - logout clears token/session/local cache.
+- Implement Octokit GitHub services for SolidStart server functions:
+  - create authenticated Octokit client from current token.
+  - use GitHub GraphQL first for viewer identity, repository lists, issue/PR lists, issue/PR detail, comments, labels, assignees, review state, and combined timeline-style reads.
+  - use REST fallback only for operations where GitHub REST is more complete or simpler, such as some review comments/check endpoints/comment mutations if needed.
+  - create issues.
+  - edit issue title/body/state/labels/assignees where permitted.
+  - create/edit issue or PR comments where permitted.
+  - handle GraphQL pagination/cursors, Octokit errors, rate limits, permission errors, and GitHub API failures consistently.
+- Use optional SQLite/local cache for:
+  - selected repo IDs.
+  - lightweight preferences.
+  - recent GraphQL snapshots if useful.
+  - Pi job logs/status in Issue 3.
 
-- Connect GitHub using a pasted fine-grained token first; OAuth Device Flow can be added after the token path is solid.
-- Select one or more repositories visible to the connected GitHub identity/token.
-- View a unified issue/PR inbox across selected repositories.
-- Filter and sort by repo, type, status, author, assignee, label, review state, agent, attention state, and updated time.
-- Create new GitHub issues from the app.
-- Open an issue/PR detail page optimized for reading long technical discussions:
-  - full-width responsive layout with narrow metadata rail only where useful
-  - sticky title/header with repo, number, state, labels, assignees, and actions
-  - GitHub-like markdown rendered body
-  - chronological issue comments
-  - PR conversation comments, review summaries, and review comments where feasible
-  - PR checks summary and merge/review status where feasible
-  - labels/assignees/milestone
-  - linked branch/PR references where available
-  - local AI/agent summary and attention indicators
-- Add and edit comments on issues/PRs where permissions allow.
-- Edit issue fields such as title, body, state, labels, assignees, and milestone where permissions allow.
-- Coordinate Pi Agent work using first-class UI actions backed by GitHub-native labels/comments and Pi SDK job execution.
+### Main files/directories
 
-### Agentic-workflow MVP concepts
+- `package.json`
+- `pnpm-workspace.yaml`
+- `docker-compose.yml`
+- `.env.example`
+- `apps/app/`
+- `apps/app/src/routes/`
+- `apps/app/src/server/github/`
+- `apps/app/src/server/auth/`
+- `apps/app/src/server/repos/`
+- `apps/app/src/server/issues/`
+- `apps/app/src/server/pulls/`
+- `apps/app/src/server/db/` if SQLite/cache is used
+- `packages/shared/`
 
-Recommendation: make agents feel first-class in the UI, but store durable agent assignment/status in GitHub-native labels/comments so logout or local reset does not lose important workflow state.
+### Validation / done when
 
-- Agent registry:
-  - initially bootstrapped from GitHub labels/comments and configurable in local settings
-  - slug/display name/avatar color
-  - agent type/provider/tool, starting with Pi Agent; keep generic support for Codex, Claude Code, Cursor, Devin, and custom bots later
-  - capabilities/tags, e.g. frontend, backend, tests, docs, review
-  - optional default instructions/working style
-  - later can be persisted in a repository config issue/file if durable cross-device configuration is needed
-- Agent work dashboard:
-  - grouped by agent, status, repository, and attention state
-  - shows assigned issues/PRs, stale work, blocked items, pending review, and needs-human items
-- GitHub-native sync conventions:
-  - assignment labels like `agent:pi` or `agent:<slug>`
-  - status labels like `agent-status:queued`, `agent-status:in-progress`, `agent-status:blocked`, `agent-status:review`, `needs-human`
-  - structured handoff comments posted to GitHub for transparency, e.g. Pi Agent assignment, handoff, summary, blocked, and review-request comments
-- AI discourse panel on each issue/PR:
-  - timeline of GitHub comments plus local summaries
-  - composer for human-to-agent instructions that can be posted as GitHub comments
-  - quick actions such as assign agent, request changes, mark blocked, ask for summary, and mark needs-human
-- Slightly-above-MVP differentiator:
-  - local “attention engine” that flags threads needing action using simple deterministic rules first, e.g. new agent comment, failed checks, stale PR, blocked label, mention/requested review, unresolved human question.
+- `docker compose up` starts the SolidStart app locally.
+- User can paste a GitHub token and see connected GitHub identity.
+- User can fetch visible user/org repos through Octokit.
+- User can select repos and refresh them after reload.
+- SolidStart server functions can list repo issues and PRs through Octokit GraphQL.
+- SolidStart server functions can fetch issue detail, comments, PR detail, PR comments/review comments, and checks summary.
+- SolidStart server functions can create an issue and post/edit a comment, verified on GitHub.
+- Permission/rate-limit errors are readable in the UI/server response.
 
-### Pi Agent SDK action runner
+---
 
-The MVP should include a lightweight Pi Agent runner. The app will read GitHub issue/PR context, call the Pi SDK for a selected action, then post the result back to GitHub as a comment and/or metadata update.
+## Issue 2 — Linear Meets GitHub Lite UI: Repos, Issue/PR Lists, Comments, and Markdown Reader
 
-Recommended initial action model:
+### What is being done
 
-- User explicitly clicks an action in the issue/PR discourse panel.
-- API creates a local `PiJob` record with target repo, issue/PR number, action type, prompt/instructions, and status.
-- API gathers GitHub context:
-  - issue/PR title, body, labels, assignees, state
-  - recent comments and timeline events
-  - for PRs: diff/changed files, checks summary, review comments where feasible
-- API calls the Pi SDK with a structured payload.
-- API posts Pi Agent's answer back to GitHub as a durable comment.
-- API updates labels/status, e.g. `agent:pi`, `agent-status:review`, `agent-status:blocked`, `needs-human`, as appropriate.
-- UI shows job progress/logs and links to the posted GitHub comment.
+Build the core UI/UX: a polished, minimal GitHub Lite interface with Linear-like speed and clarity. The user can browse repositories, view issue/PR lists, read long issue/PR discussions, render markdown close to GitHub, and take common actions without code diffs.
 
-Initial Pi SDK jobs:
+### How
+
+- Build primary routes:
+  - `/setup` — paste GitHub token, verify connection.
+  - `/repos` — fetch/search/filter/select repos.
+  - `/inbox` — unified issue/PR conversation inbox across selected repos.
+  - `/r/:owner/:repo` — repo overview.
+  - `/r/:owner/:repo/issues` — repo issue list.
+  - `/r/:owner/:repo/pulls` — repo PR list.
+  - `/r/:owner/:repo/issues/:number` — issue reader.
+  - `/r/:owner/:repo/pulls/:number` — PR conversation reader, no diff viewer.
+  - `/settings` — token/session, label conventions, Pi SDK config notes.
+- Build list UX:
+  - Linear-like dense rows.
+  - filters for open/closed, labels, assignee, author, updated, agent status, attention flags.
+  - show repo, number, title, labels, comment count, updated time, PR/issue state.
+- Build issue detail reader:
+  - full-width responsive layout.
+  - sticky header with title, repo/number, state, labels, assignees, quick actions.
+  - body as first timeline card.
+  - chronological comments with author, timestamp, edited state.
+  - bottom composer for new comments.
+  - edit issue/comment where GitHub permits.
+- Build PR detail reader:
+  - same conversation-first layout.
+  - show source/target branch, review state, merge/check summary.
+  - show PR conversation comments and review comments where feasible.
+  - link out to GitHub for files/diffs instead of rendering diffs.
+- Markdown rendering:
+  - GitHub Flavored Markdown with tables, task lists, autolinks, mentions, issue refs, blockquotes, images, and code fences.
+  - sanitized HTML/output.
+  - syntax highlighting.
+  - GitHub-like typography, spacing, tables, code blocks, and task lists.
+  - raw markdown edit mode with preview before posting.
+- Keep UI scope focused:
+  - one excellent light theme first.
+  - dark mode later unless cheap from styling system.
+  - no code browser/diff viewer.
+
+### Main files/directories
+
+- `apps/app/src/routes/`
+- `apps/app/src/features/repos/`
+- `apps/app/src/features/issues/`
+- `apps/app/src/features/pulls/`
+- `apps/app/src/features/inbox/`
+- `apps/app/src/components/markdown/`
+- `apps/app/src/components/layout/`
+- `apps/app/src/components/ui/` — internal Tailwind + Kobalte-based design system primitives
+- `apps/app/src/lib/api/` or SolidStart server-function clients
+- `packages/shared/`
+
+### Reuse / libraries
+
+- SolidStart full-stack framework.
+- TanStack Query/Solid Query or equivalent for client fetching/cache.
+- GitHub Flavored Markdown stack such as `remark-gfm`, `rehype-sanitize`, syntax highlighting, and GitHub-like markdown CSS/prose styles.
+- Tailwind CSS as the styling/design-token layer.
+- Kobalte as the Solid-native accessible headless component primitive library.
+- `lucide-solid` for icons.
+- Optional `@tanstack/virtual` for long issue/PR lists if needed.
+
+### Validation / done when
+
+- Repo picker fetches real GitHub repos and supports search/filter/select.
+- Issue list and PR list load for selected repos.
+- Issue detail renders body/comments in readable GitHub-like markdown.
+- PR detail renders conversation comments, review comments, and check summary without code diffs.
+- Markdown examples render correctly: tables, task lists, code fences, links, mentions, issue references, images, blockquotes.
+- User can create issue comments from UI and see them on GitHub.
+- UI feels full-width, minimal, readable, and not like a noisy GitHub clone.
+- Loading, empty, permission, token, and rate-limit states are clear.
+
+---
+
+## Issue 3 — Pi SDK Actions: Summarize, Draft Reply, Triage, Review PR, Plan Implementation
+
+### What is being done
+
+Add Pi Agent as the first built-in agent. The app reads GitHub issue/PR context, calls the Pi SDK for explicit user-triggered actions, and posts useful results back to GitHub. These action implementations should be idiomatic, commented, and runnable as examples for maintainers.
+
+### How
+
+- Add Pi Agent server modules/functions inside the SolidStart app.
+- Hide SDK details behind `PiAgentClient` so the app is not tightly coupled to one SDK shape.
+- During implementation, confirm exact Pi SDK package/import, auth method, env vars, and input/output contract from Pi SDK docs/examples.
+- Add local `PiJob` records/logs for observability:
+  - target repo/issue/PR.
+  - action type.
+  - status: queued/running/succeeded/failed/cancelled.
+  - logs/errors.
+  - posted GitHub comment URL/id.
+- Gather normalized GitHub context before each Pi call:
+  - issue/PR title, body, labels, assignees, state.
+  - recent comments and timeline-like context.
+  - for PRs: changed files summary/checks summary/review comments where feasible; no full diff UI.
+- Implement commented action files that double as runnable examples:
+  - `summarize-thread.action.ts`
+  - `draft-reply.action.ts`
+  - `answer-latest-question.action.ts`
+  - `triage-issue.action.ts`
+  - `review-pr.action.ts`
+  - `plan-implementation.action.ts`
+- Add a small dev runner/CLI script for example actions against a test issue/PR.
+- Add UI action bar on issue/PR detail pages:
+  - Summarize thread.
+  - Draft reply.
+  - Answer latest question.
+  - Triage issue.
+  - Review PR.
+  - Plan implementation.
+- Posting policy:
+  - `draft reply` opens editable preview before posting.
+  - summarize/triage/review/plan can use “run and post” after explicit click.
+- Use GitHub-native conventions for durable agent state:
+  - labels like `agent:pi`.
+  - labels like `agent-status:queued`, `agent-status:in-progress`, `agent-status:review`, `agent-status:blocked`, `needs-human`.
+  - structured comments for Pi Agent outputs.
+
+### Initial Pi actions
 
 - `Summarize thread`
   - Input: issue/PR body and comments.
   - Output posted to GitHub: concise status, decisions, blockers, next actions.
 - `Draft reply`
-  - Input: selected comments plus user instruction.
-  - Output: proposed GitHub comment; user can edit before posting or post directly if configured.
+  - Input: selected/latest comments plus user instruction.
+  - Output: proposed GitHub comment; user edits/approves before posting.
 - `Answer latest question`
-  - Input: issue/PR context plus the latest unanswered human comment.
-  - Output posted to GitHub: a direct Pi Agent answer with caveats, assumptions, and next steps.
+  - Input: issue/PR context plus latest unanswered human comment.
+  - Output posted to GitHub: direct answer with assumptions and next steps.
 - `Triage issue`
   - Input: issue title/body/comments.
   - Output posted to GitHub: classification, suggested labels, missing information, proposed next step.
-  - Optional metadata updates: add labels such as `needs-human`, `bug`, `enhancement`, `agent-status:queued`.
 - `Review PR`
-  - Input: PR body, comments, diff/changed files, checks summary.
+  - Input: PR body, comments, review comments, checks summary, changed files summary.
   - Output posted to GitHub: review summary, risks, test suggestions, requested changes.
 - `Plan implementation`
   - Input: issue body/comments and repo context summary.
-  - Output posted to GitHub: implementation plan, files likely touched, acceptance criteria, test plan.
+  - Output posted to GitHub: implementation plan, likely files touched, acceptance criteria, test plan.
 
-Above-MVP/follow-up Pi jobs:
+### Deferred Pi jobs
 
-- `Implement issue`: Pi Agent creates branch, changes code, opens/updates PR.
-- `Fix failing PR checks`: Pi Agent reads CI output, patches branch, comments with changes.
-- `Apply review feedback`: Pi Agent updates PR branch based on comments.
+Defer code-writing jobs until runner sandboxing, checkout credentials, cancellation, logs, and security boundaries are designed:
 
-MVP recommendation: include Pi SDK calls for read/analyze/respond actions first. Defer code-writing jobs until runner sandboxing, checkout credentials, job cancellation, logs, and security boundaries are designed.
+- Implement issue.
+- Fix failing PR checks.
+- Apply review feedback.
+- Push branches/open PRs.
 
-Pi SDK implementation style:
+### Main files/directories
 
-- Wrap the Pi SDK behind a small `PiAgentClient` interface so examples remain runnable and the rest of the app does not depend directly on SDK details.
-- Provide idiomatic, commented action files such as:
-  - `summarize-thread.action.ts`
-  - `draft-reply.action.ts`
-  - `triage-issue.action.ts`
-  - `review-pr.action.ts`
-  - `plan-implementation.action.ts`
-  - `answer-latest-question.action.ts`
-- Each action file should double as a readable example:
-  - clearly typed input payload
-  - GitHub context normalization
-  - Pi SDK call
-  - response validation/normalization
-  - GitHub comment body formatting
-  - errors/timeouts surfaced to the UI and optionally commented back to GitHub only when useful
-- Include a minimal CLI/dev runner or script for each example action so maintainers can run it against a test issue/PR without opening the UI.
-
-### Explicit non-goals for initial MVP
-
-- Replacing GitHub code browsing.
-- Full project management suite.
-- Full CI/CD dashboard.
-- Full autonomous code-writing Pi jobs in the first release.
-- Reimplementing every GitHub issue/PR operation.
-- Full GitHub Projects replacement.
-- Complex autonomous planning/execution before the issue/PR discourse loop is strong.
-
-## Recommended Architecture
-
-### Backend modules
-
-- `AuthModule`: local GitHub credential/session handling; no separate app accounts.
-- `GithubAuthModule`: pasted fine-grained PAT support plus optional GitHub OAuth Device/Web Flow.
-- `GithubSyncModule`: Octokit-based GitHub REST/GraphQL wrappers, pagination, caching, rate-limit/error handling.
-- `RepositoriesModule`: selected repos/workspaces and repo metadata.
-- `IssuesModule`: issue list/detail/create/edit/comment operations.
-- `PullRequestsModule`: PR list/detail/comments/check-summary operations.
-- `AgentsModule`: local agent registry, capabilities, assignment/status mapping.
-- `PiAgentModule`: Pi SDK client, action payload builders, response normalization.
-- `JobsModule`: local Pi job records, status, logs, retries/cancellation, and GitHub result posting.
-- `AttentionModule`: deterministic rules for “needs action” indicators.
-- `MarkdownModule` or shared markdown utilities: GitHub Flavored Markdown rendering/sanitization helpers for server/client consistency where useful.
-
-### Frontend routes
-
-- `/setup`: first-run Docker Compose setup, paste token or start GitHub OAuth flow.
-- `/repos`: fetch and choose repositories visible to the connected GitHub identity.
-- `/inbox`: unified issue/PR work inbox across selected repositories.
-- `/r/:owner/:repo`: repository overview with issue/PR tabs and saved filters.
-- `/r/:owner/:repo/issues`: repository issue list.
-- `/r/:owner/:repo/pulls`: repository pull request list.
-- `/issues/new`: create GitHub issue.
-- `/r/:owner/:repo/issues/:number`: issue detail + AI discourse panel.
-- `/r/:owner/:repo/pulls/:number`: PR detail + AI discourse panel; no code diff viewer in MVP.
-- `/agents`: Pi Agent status/actions and workload board.
-- `/settings`: GitHub integration, Pi SDK config, label conventions, workspace preferences.
-
-### UI plan
-
-- Visual direction:
-  - Linear meets GitHub Lite: fast, calm, minimal, command-friendly, and highly readable
-  - full-width, keyboard-friendly UI optimized for reading and acting on issue/PR discussions
-  - GitHub-inspired entities and markdown, but with Linear-like speed, density, shortcuts, sidebar navigation, and crisp status treatment
-  - centered content column for comment bodies on large screens, with optional right metadata/action rail
-  - dense list views, spacious detail views
-  - focus on one excellent light theme first, with dark mode as a follow-up unless it falls out cheaply from the styling system
-- Repository selection:
-  - fetch authenticated user repos/org repos through GitHub API
-  - search/filter repos by owner/name, private/public, recently pushed, selected/enabled
-  - persist selected repo IDs locally only; re-fetch from GitHub after logout/login
-- Repository issue/PR lists:
-  - tabs for Issues, Pull Requests, and unified Conversation inbox
-  - filters for open/closed, labels, author, assignee, mentioned, updated, agent labels, attention flags
-  - compact rows showing title, repo, number, labels, comments count, updated time, status, assigned Pi Agent state
-- Issue detail reader:
-  - sticky header with title, state, repo/number, labels, assignees, comment/create/edit actions
-  - body rendered as first timeline card
-  - comments rendered chronologically as readable cards with author, timestamp, edited state, reactions if easy
-  - edit affordances for issue body and comments authored by the connected user/token where GitHub permits
-  - composer at bottom and optional sticky quick-reply composer
-  - Pi Agent action bar: summarize, draft reply, answer latest question, triage, plan implementation
-- PR detail reader:
-  - same conversation-first layout as issues
-  - show PR metadata: source/target branch, merge state, review state, checks summary
-  - show PR review comments in conversation/timeline form where feasible
-  - omit code diff browsing for MVP; link out to GitHub for files/diffs
-  - Pi Agent action bar: summarize, draft reply, answer latest question, review PR
-- Markdown rendering:
-  - render GitHub Flavored Markdown using a robust markdown pipeline with syntax highlighting, tables, task lists, autolinks, mentions, issue references, blockquotes, and code fences
-  - sanitize output before rendering
-  - style markdown to closely match GitHub readability: typography, spacing, code blocks, tables, task lists, alerts/admonitions where supported
-  - preserve raw markdown in edit mode and preview rendered output before posting
-- Loading/error states:
-  - skeletons for lists/detail pages
-  - clear GitHub rate-limit and permission errors
-  - retry controls for GitHub and Pi SDK failures
-  - empty states that explain required token scopes and selected repo setup
-
-### API endpoints, initial
-
-- `GET /api/github/viewer` — connected GitHub user/token identity.
-- `GET /api/github/repos` — fetch repos available to the token.
-- `GET /api/repos/selected` / `PUT /api/repos/selected` — local selected repo preferences.
-- `GET /api/repos/:owner/:repo/issues` — issue list with filters.
-- `GET /api/repos/:owner/:repo/pulls` — PR list with filters.
-- `GET /api/repos/:owner/:repo/issues/:number` — issue body, metadata, comments, timeline subset.
-- `GET /api/repos/:owner/:repo/pulls/:number` — PR body, metadata, comments, review comments, check summary; no diff payload for MVP.
-- `POST /api/repos/:owner/:repo/issues` — create issue.
-- `PATCH /api/repos/:owner/:repo/issues/:number` — edit issue fields.
-- `POST /api/repos/:owner/:repo/issues/:number/comments` — create issue/PR conversation comment.
-- `PATCH /api/repos/:owner/:repo/comments/:commentId` — edit comment where permitted.
-- `POST /api/pi/jobs` — run Pi SDK action for target issue/PR.
-- `GET /api/pi/jobs/:id` — read job status/log/result.
-
-### Local data model, initial
-
-- `LocalSession` — active connected GitHub identity/token reference; cleared on logout.
-- `RepositoryCache` — GitHub repo id/name/owner plus enabled flag/cache metadata.
-- `LocalPreference` — selected repos, filters, UI defaults, label prefixes; safe to clear/recreate.
-- `AgentViewConfig` — optional local display config for known agent labels. Seed/configure Pi Agent as the first built-in agent profile.
-- `PiJob` — local short-lived job status/logs for Pi SDK actions; durable result is posted to GitHub.
-- `ThreadSummaryCache` — cached summary, last summarized GitHub event/comment id, attention flags; recomputable.
-
-GitHub remains canonical for issue/PR/comment content and durable agent workflow state. Local DB/cache stores only ephemeral convenience data unless the user later chooses a repo-backed config file/issue.
-
-## Files to modify
-
-No application files exist yet. Expected future files/directories:
-
-- `package.json`
-- `pnpm-workspace.yaml` or equivalent workspace config
-- `apps/web/` — SolidJS app
-- `apps/api/` — NestJS API
-- `packages/shared/` — shared types/schema utilities
-- `docker-compose.yml`
-- `apps/api/src/db/` or lightweight SQLite cache setup if needed
-- `apps/api/src/pi-agent/` — Pi SDK integration and action runners
-- `apps/api/src/jobs/` — local Pi job status/log handling
+- `apps/app/src/server/pi-agent/`
+- `apps/app/src/server/pi-agent/actions/*.action.ts`
+- `apps/app/src/server/jobs/`
+- `apps/app/src/server/github/` context helpers reused from Issue 1
+- `apps/app/src/features/pi-agent/`
+- `apps/app/src/features/issues/IssuePiActionBar.tsx`
+- `apps/app/src/features/pulls/PullPiActionBar.tsx`},{
 - `.env.example`
-- `apps/api/src/pi-agent/actions/*.action.ts` — commented runnable Pi SDK examples/actions
-- `apps/web/src/components/markdown/` — GitHub-like markdown renderer/styles
-- `apps/web/src/features/repos/` — repo picker and repo pages
-- `apps/web/src/features/issues/` — issue list/detail/comment composer
-- `apps/web/src/features/pulls/` — PR list/detail conversation reader
-- `apps/web/src/features/pi-agent/` — Pi action bar, job progress/result UI
-- `README.md`
 
-## Reuse
+### Validation / done when
 
-No existing code or utilities are present in this repository yet.
+- Pi SDK credentials/config can be supplied locally through environment variables.
+- Each action has a typed, commented implementation and can run through the app.
+- At least one dev/example runner can execute an action against a test GitHub issue/PR.
+- `Summarize thread` posts a useful comment to GitHub.
+- `Draft reply` produces an editable preview and posts after approval.
+- `Triage issue` can suggest/post labels/comments and handles missing context gracefully.
+- `Review PR` posts a PR review-style summary/comment without rendering code diffs in the UI.
+- Pi SDK failures/timeouts are visible in job status and do not corrupt GitHub state.
 
-Likely external/open-source building blocks to evaluate:
+---
 
-- SolidJS + Vite Solid template for a simpler SPA MVP
-- NestJS
-- Octokit as the required GitHub client layer, using https://github.com/octokit/octokit.js:
-  - `octokit.js` / `@octokit/rest` for issues, pulls, comments, labels, repos, checks, and review comments
-  - `@octokit/graphql` only where GraphQL is clearly better for combined views/search
-  - Octokit auth and pagination helpers for repo, issue, PR, and comment lists
-  - Octokit-native error/rate-limit handling surfaced through NestJS services
-- GitHub OAuth Device Flow/Web Flow libraries if OAuth is included
-- Fine-grained GitHub personal access tokens for simplest local setup
-- Pi SDK for read/analyze/respond agent actions
-- SQLite with Prisma/Drizzle only for local cache/preferences/jobs if needed; avoid PostgreSQL in MVP
-- TanStack Query/Solid Query for client-side data fetching/cache
-- GitHub Flavored Markdown stack such as `remark-gfm`, `rehype-sanitize`, syntax highlighting, and GitHub-like markdown CSS/prose styles
-- Tailwind or another OSS component styling system
+## Overall Verification
 
-## Steps
-
-- [x] Confirm MVP product boundaries and target user persona: agentic developer managing coding-agent work.
-- [x] Confirm initial deployment shape: Docker Compose self-hosted setup is enough.
-- [x] Finalize GitHub auth model: no separate auth; local GitHub credential via pasted fine-grained token first, OAuth flow as nicer option.
-- [x] Define baseline GitHub write scope: create issues, read issues/PRs/comments, edit issues/comments/metadata where permitted.
-- [ ] Finalize exact GitHub label/comment conventions for Pi Agent coordination.
-- [x] Decide Pi Agent execution scope: call Pi SDK for read/analyze/respond actions and post results to GitHub.
-- [x] Confirm GitHub client choice: use Octokit for all GitHub API access.
-- [x] Simplify MVP architecture after outside review: Vite Solid SPA + NestJS + optional SQLite/local cache, no PostgreSQL/multi-user/GitHub App/diffs.
-- [ ] Resolve Pi SDK package/API shape and credentials during implementation; hide details behind `PiAgentClient`.
-- [x] Choose initial app architecture and repository structure.
-- [x] Define API modules and frontend routes.
-- [x] Define MVP data model for local persistence.
-- [x] Define UI plan for repo fetching, issue/PR lists, comments, PR comments, markdown rendering, and full-width reading experience.
-- [ ] Define verification plan and launch criteria.
-
-## Verification
-
-Planned verification once implementation begins:
-
-- Run API unit/integration tests for GitHub service wrappers.
-- Run frontend component/route tests for inbox and detail views.
-- Run the stack with Docker Compose.
-- Connect GitHub with a fine-grained PAT or OAuth flow.
-- List issues and pull requests across selected repositories.
-- Create a new issue from the app and confirm it appears on GitHub.
-- Open detail views and verify comments/metadata render correctly.
-- Create and edit a comment from the app and confirm it appears on GitHub.
-- Update issue title/body/state/labels/assignees where supported and confirm changes sync to GitHub.
-- Assign an issue to Pi Agent and verify GitHub labels/comments contain the durable workflow state.
-- Run a Pi SDK `Summarize thread` job and confirm the generated answer is posted to GitHub.
-- Run a Pi SDK `Draft reply`, `Answer latest question`, or `Triage issue` job and confirm user approval/posting flow works.
-- Verify repo fetching for user and org repos visible to the connected token.
-- Verify repository issue list and PR list filters.
-- Verify issue detail renders body/comments in GitHub-like markdown.
-- Verify PR detail renders conversation comments, review comments, and checks summary without code diffs.
-- Verify markdown rendering for tables, task lists, code fences, links, mentions, issue references, images, and blockquotes.
-- Validate behavior under GitHub API errors/rate limits and Pi SDK failures/timeouts.
-
-## Open Questions
-
-- During implementation, confirm the exact Pi SDK package/import, auth method, environment variables, and input/output contract from Pi SDK docs or examples.
-- Default posting policy: summarize/triage/review/plan actions can post directly when the user clicks “run and post”; draft reply opens editable preview before posting.
-- Durable agent configuration can remain label/comment based for MVP; repo-backed config can be added later if needed.
+- Run server-side tests for Octokit GraphQL services and Pi action payload builders.
+- Run frontend route/component tests for repo picker, lists, markdown renderer, issue reader, PR reader, and Pi action bar.
+- Manually run the full Docker Compose flow against a test GitHub repo.
+- Verify all durable user-visible actions appear in GitHub.
+- Verify logout clears local session/token/cache while GitHub issues/comments remain intact.
+- Verify the MVP feels like a focused Linear x GitHub Lite workflow hub, not a broad GitHub clone.

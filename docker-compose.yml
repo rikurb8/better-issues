@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: apps/app/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      PI_API_KEY: ${PI_API_KEY:-}
+    volumes:
+      - .:/workspace
+      - pnpm-store:/pnpm/store
+      - app-data:/workspace/apps/app/.data
+    working_dir: /workspace
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @work-hub/app dev --host 0.0.0.0"
+volumes:
+  pnpm-store:
+  app-data:

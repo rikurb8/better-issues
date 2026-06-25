@@ -1,0 +1,13 @@
+node_modules
+.pnpm-store
+.data
+apps/app/.data
+.output
+.vinxi
+dist
+.env
+.env.local
+.DS_Store
+playwright-report
+blob-report
+test-results
