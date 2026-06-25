@@ -55,7 +55,7 @@ export default function Repos() {
   return <main class="min-h-screen bg-surface px-6 py-8 text-neutral-950">
     <section class="mx-auto max-w-6xl space-y-4">
       <div><h1 class="text-3xl font-semibold">Repositories</h1><p class="text-neutral-600">GraphQL-backed repo picker goes here: search, filter, select enabled repos.</p></div>
-      <button class="rounded-lg bg-neutral-950 px-4 py-2 text-white disabled:opacity-60" disabled={reposQuery.isFetching} onClick={fetchRepos}>{reposQuery.isFetching ? 'Fetching...' : 'Fetch repositories'}</button>
+      <button class="rounded-lg bg-neutral-950 px-4 py-2 text-white dark:bg-white dark:text-neutral-950 disabled:opacity-60" disabled={reposQuery.isFetching} onClick={fetchRepos}>{reposQuery.isFetching ? 'Fetching...' : 'Fetch repositories'}</button>
       <Show when={error()}><p class="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{error()} <a class="underline" href="/setup">Connect GitHub</a></p></Show>
       <Show when={(reposQuery.data?.length ?? 0) > 0} fallback={<div class="rounded-2xl border bg-white p-6 text-neutral-500">No repos loaded yet. Connect GitHub, then fetch via SolidStart server functions.</div>}>
         <ul class="divide-y rounded-2xl border bg-white">

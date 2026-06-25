@@ -118,7 +118,7 @@ export default function RepoPage() {
               <h1 class="text-3xl font-semibold">{current().nameWithOwner}</h1>
               <p class="mt-2 max-w-3xl text-neutral-600">{current().description || 'No description'}</p>
             </div>
-            <a class="rounded-lg bg-neutral-950 px-4 py-2 text-white" href={current().url} target="_blank">Open on GitHub</a>
+            <a class="rounded-lg bg-neutral-950 px-4 py-2 text-white dark:bg-white dark:text-neutral-950" href={current().url} target="_blank">Open on GitHub</a>
           </div>
           <div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Meta label="Visibility" value={current().isPrivate ? 'Private' : 'Public'} />

@@ -3,7 +3,16 @@ import sanitizeHtml from 'sanitize-html';
 
 marked.use({ gfm: true, breaks: false });
 
-const allowedTags = sanitizeHtml.defaults.allowedTags.concat(['img', 'input', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+export type MarkdownRenderMode = 'github' | 'prose' | 'card' | 'dense';
+
+export const markdownRenderModes: { value: MarkdownRenderMode; label: string; description: string }[] = [
+  { value: 'github', label: 'GitHub', description: 'github-markdown-css baseline' },
+  { value: 'prose', label: 'Editorial', description: 'larger reading rhythm and soft canvas' },
+  { value: 'card', label: 'Card', description: 'elevated issue-note treatment' },
+  { value: 'dense', label: 'Dense', description: 'compact triage-friendly rendering' },
+];
+
+const allowedTags = sanitizeHtml.defaults.allowedTags.concat(['img', 'input', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'details', 'summary']);
 const allowedAttributes = {
   ...sanitizeHtml.defaults.allowedAttributes,
   a: ['href', 'name', 'target', 'rel'],
@@ -24,6 +33,14 @@ function renderMarkdown(body?: string) {
   });
 }
 
-export function Markdown(props: { body?: string }) {
-  return <article class="markdown-body rounded-xl border border-neutral-200 bg-white p-5 text-neutral-900" innerHTML={renderMarkdown(props.body)} />;
+const modeClass: Record<MarkdownRenderMode, string> = {
+  github: 'markdown-github',
+  prose: 'markdown-prose border-violet-200 bg-gradient-to-br from-white to-violet-50/40 p-7 text-[16px] shadow-sm dark:border-violet-900/60 dark:from-neutral-900 dark:to-violet-950/20',
+  card: 'markdown-card border-neutral-200 bg-white p-6 shadow-lg shadow-neutral-200/60 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-black/30',
+  dense: 'markdown-dense p-4 text-sm',
+};
+
+export function Markdown(props: { body?: string; mode?: MarkdownRenderMode }) {
+  const mode = () => props.mode ?? 'github';
+  return <article class={`markdown-body rounded-xl border border-neutral-200 bg-white p-5 text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 ${modeClass[mode()]}`} innerHTML={renderMarkdown(props.body)} />;
 }

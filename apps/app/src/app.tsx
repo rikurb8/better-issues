@@ -6,6 +6,7 @@ import Setup from './routes/setup';
 import Repos from './routes/repos';
 import RepoPage from './routes/repo';
 import IssuePage from './routes/issue';
+import ThemeToggle from './components/ThemeToggle';
 
 function pathname() {
   if (isServer) return new URL(getRequestEvent()?.request.url ?? 'http://localhost/').pathname;
@@ -60,5 +61,5 @@ function Routes() {
 }
 
 export default function App() {
-  return <QueryClientProvider client={queryClient}><Routes /></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><ThemeToggle /><Routes /></QueryClientProvider>;
 }
