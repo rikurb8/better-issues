@@ -4,7 +4,7 @@ const REPOS_QUERY = `
 query Repos($first: Int!) {
   viewer {
     repositories(first: $first, orderBy: {field: PUSHED_AT, direction: DESC}, ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]) {
-      nodes { id nameWithOwner description isPrivate url }
+      nodes { id nameWithOwner description isPrivate url owner { login } name }
     }
   }
 }`;
@@ -12,6 +12,8 @@ query Repos($first: Int!) {
 type Repo = {
   id: string;
   nameWithOwner: string;
+  name: string;
+  owner: { login: string };
   description?: string | null;
   isPrivate: boolean;
   url: string;
@@ -58,9 +60,12 @@ export default function Repos() {
       <Show when={repos().length > 0} fallback={<div class="rounded-2xl border bg-white p-6 text-neutral-500">No repos loaded yet. Connect GitHub, then fetch via SolidStart server functions.</div>}>
         <ul class="divide-y rounded-2xl border bg-white">
           <For each={repos()}>{(repo) => <li class="p-4">
-            <a class="font-medium text-violet-700" href={repo.url}>{repo.nameWithOwner}</a>
+            <a class="font-medium text-violet-700" href={`/repos/${encodeURIComponent(repo.owner.login)}/${encodeURIComponent(repo.name)}`}>{repo.nameWithOwner}</a>
             <p class="text-sm text-neutral-600">{repo.description || 'No description'}</p>
-            <span class="text-xs uppercase tracking-wide text-neutral-500">{repo.isPrivate ? 'Private' : 'Public'}</span>
+            <div class="mt-2 flex items-center gap-3 text-xs uppercase tracking-wide text-neutral-500">
+              <span>{repo.isPrivate ? 'Private' : 'Public'}</span>
+              <a class="normal-case tracking-normal text-neutral-500 underline" href={repo.url} target="_blank">GitHub</a>
+            </div>
           </li>}</For>
         </ul>
       </Show>
