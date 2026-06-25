@@ -1,4 +1,5 @@
-import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
+import { createQuery } from '@tanstack/solid-query';
+import { For, Show, createMemo } from 'solid-js';
 import { getRequestEvent, isServer } from 'solid-js/web';
 import { Markdown } from '../components/markdown/Markdown';
 
@@ -85,22 +86,16 @@ function relativeDate(value: string) {
 }
 
 export default function IssuePage() {
-  const [repository, setRepository] = createSignal<IssueResponse | null>(null);
-  const [error, setError] = createSignal('');
-  const [loading, setLoading] = createSignal(true);
   const parts = createMemo(pathParts);
+  const issueQuery = createQuery<IssueResponse>(() => ({
+    queryKey: ['github', 'issue', parts().owner, parts().name, parts().number],
+    enabled: !isServer,
+    staleTime: 30_000,
+    gcTime: 30 * 60_000,
+    queryFn: async () => {
+      const token = localStorage.getItem('github_token_hint');
+      if (!token) throw new Error('Save a GitHub token before viewing issue details.');
 
-  async function fetchIssue() {
-    const token = localStorage.getItem('github_token_hint');
-    if (!token) {
-      setError('Save a GitHub token before viewing issue details.');
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
       const response = await fetch('https://api.github.com/graphql', {
         method: 'POST',
         headers: { authorization: `bearer ${token}`, 'content-type': 'application/json' },
@@ -109,29 +104,23 @@ export default function IssuePage() {
       const payload = await response.json();
       if (!response.ok || payload.errors?.length) throw new Error(payload.errors?.[0]?.message ?? 'Failed to fetch issue.');
       if (!payload.data.repository?.issue) throw new Error('Issue not found.');
-      setRepository(payload.data.repository);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch issue.');
-    } finally {
-      setLoading(false);
-    }
-  }
+      return payload.data.repository;
+    },
+  }));
 
-  onMount(fetchIssue);
-
-  const issue = createMemo(() => repository()?.issue ?? null);
+  const issue = createMemo(() => issueQuery.data?.issue ?? null);
   const repoHref = createMemo(() => `/repos/${encodeURIComponent(parts().owner)}/${encodeURIComponent(parts().name)}`);
 
   return <main class="min-h-screen bg-surface px-6 py-8 text-neutral-950">
     <section class="mx-auto max-w-5xl space-y-6">
       <a class="text-sm font-medium text-violet-700" href={repoHref()}>← Back to repository</a>
-      <Show when={loading()}><div class="rounded-2xl border bg-white p-6 text-neutral-500">Loading issue…</div></Show>
-      <Show when={error()}><p class="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{error()} <a class="underline" href="/setup">Connect GitHub</a></p></Show>
+      <Show when={issueQuery.isLoading}><div class="rounded-2xl border bg-white p-6 text-neutral-500">Loading issue…</div></Show>
+      <Show when={issueQuery.error}><p class="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{issueQuery.error instanceof Error ? issueQuery.error.message : 'Failed to fetch issue.'} <a class="underline" href="/setup">Connect GitHub</a></p></Show>
       <Show when={issue()}>{(current) => <>
         <header class="rounded-2xl border bg-white p-6 shadow-sm">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="text-sm text-neutral-500">{repository()?.nameWithOwner} #{current().number}</p>
+              <p class="text-sm text-neutral-500">{issueQuery.data?.nameWithOwner} #{current().number}</p>
               <h1 class="mt-1 text-3xl font-semibold">{current().title}</h1>
               <p class="mt-2 text-sm text-neutral-600">Opened by {current().author?.login ?? 'unknown'} on {relativeDate(current().createdAt)} · updated {relativeDate(current().updatedAt)}</p>
             </div>

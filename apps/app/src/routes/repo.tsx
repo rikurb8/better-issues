@@ -1,4 +1,5 @@
-import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
+import { createQuery } from '@tanstack/solid-query';
+import { For, Show, createMemo } from 'solid-js';
 import { getRequestEvent, isServer } from 'solid-js/web';
 
 const REPO_QUERY = `
@@ -84,22 +85,16 @@ function relativeDate(value: string) {
 }
 
 export default function RepoPage() {
-  const [repo, setRepo] = createSignal<RepoDetails | null>(null);
-  const [error, setError] = createSignal('');
-  const [loading, setLoading] = createSignal(true);
   const parts = createMemo(pathParts);
+  const repoQuery = createQuery<RepoDetails>(() => ({
+    queryKey: ['github', 'repo', parts().owner, parts().name],
+    enabled: !isServer,
+    staleTime: 60_000,
+    gcTime: 30 * 60_000,
+    queryFn: async () => {
+      const token = localStorage.getItem('github_token_hint');
+      if (!token) throw new Error('Save a GitHub token before viewing repository details.');
 
-  async function fetchRepo() {
-    const token = localStorage.getItem('github_token_hint');
-    if (!token) {
-      setError('Save a GitHub token before viewing repository details.');
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
       const response = await fetch('https://api.github.com/graphql', {
         method: 'POST',
         headers: { authorization: `bearer ${token}`, 'content-type': 'application/json' },
@@ -107,22 +102,16 @@ export default function RepoPage() {
       });
       const payload = await response.json();
       if (!response.ok || payload.errors?.length) throw new Error(payload.errors?.[0]?.message ?? 'Failed to fetch repository.');
-      setRepo(payload.data.repository);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch repository.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  onMount(fetchRepo);
+      return payload.data.repository;
+    },
+  }));
 
   return <main class="min-h-screen bg-surface px-6 py-8 text-neutral-950">
     <section class="mx-auto max-w-6xl space-y-6">
       <a class="text-sm font-medium text-violet-700" href="/repos">← Back to repositories</a>
-      <Show when={loading()}><div class="rounded-2xl border bg-white p-6 text-neutral-500">Loading repository…</div></Show>
-      <Show when={error()}><p class="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{error()} <a class="underline" href="/setup">Connect GitHub</a></p></Show>
-      <Show when={repo()}>{(current) => <>
+      <Show when={repoQuery.isLoading}><div class="rounded-2xl border bg-white p-6 text-neutral-500">Loading repository…</div></Show>
+      <Show when={repoQuery.error}><p class="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{repoQuery.error instanceof Error ? repoQuery.error.message : 'Failed to fetch repository.'} <a class="underline" href="/setup">Connect GitHub</a></p></Show>
+      <Show when={repoQuery.data}>{(current) => <>
         <header class="rounded-2xl border bg-white p-6 shadow-sm">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>

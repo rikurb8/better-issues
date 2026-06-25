@@ -8,6 +8,7 @@ export default function Setup() {
 
   function saveToken() {
     localStorage.setItem('github_token_hint', token());
+    sessionStorage.removeItem('work_hub_query_cache_v1');
     setSaved(true);
   }
 
