@@ -101,10 +101,9 @@ export default function RepoPage() {
     const [owner, name] = repo.nameWithOwner.split('/');
     return favoriteKeys().has(`${owner}/${name}`);
   }
-  const repoQuery = createQuery<RepoDetails | null>(() => ({
+  const repoQuery = createQuery<RepoDetails>(() => ({
     queryKey: ['github', 'repo', parts().owner, parts().name],
     enabled: !isServer,
-    initialData: null,
     staleTime: 60_000,
     gcTime: 30 * 60_000,
     queryFn: async () => {
@@ -118,7 +117,7 @@ export default function RepoPage() {
       <Link.Root class="text-sm font-medium text-neutral-950 dark:text-neutral-100" href="/repos">← Back to repositories</Link.Root>
       <Show when={repoQuery.isLoading}><div class="mystery-card p-6 text-neutral-500">Loading repository…</div></Show>
       <Show when={repoQuery.error}><p class="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{repoQuery.error instanceof Error ? repoQuery.error.message : 'Failed to fetch repository.'} <Link.Root class="underline" href="/setup">Connect GitHub</Link.Root></p></Show>
-      <Show when={repoQuery.data}>{(current) => <>
+      <Show when={repoQuery.data}>{(current) => (<>
         <header class="mystery-card p-6 shadow-sm">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -146,7 +145,7 @@ export default function RepoPage() {
           <Panel title={`Open issues (${current().issues.totalCount})`} empty="No open issues." items={current().issues.nodes} kind="issue" repoNameWithOwner={current().nameWithOwner} />
           <Panel title={`Open PRs (${current().pullRequests.totalCount})`} empty="No open pull requests." items={current().pullRequests.nodes} kind="pr" />
         </div>
-      </>}</Show>
+      </>)}</Show>
     </section>
   </main>;
 }

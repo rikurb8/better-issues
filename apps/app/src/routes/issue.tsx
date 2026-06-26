@@ -120,10 +120,9 @@ function InfoCard(props: { label: string; value: string }) {
 
 export default function IssuePage() {
   const parts = createMemo(pathParts);
-  const issueQuery = createQuery<IssueResponse | null>(() => ({
+  const issueQuery = createQuery<IssueResponse>(() => ({
     queryKey: ['github', 'issue', parts().owner, parts().name, parts().number],
     enabled: !isServer,
-    initialData: null,
     staleTime: 30_000,
     gcTime: 30 * 60_000,
     queryFn: async () => {
@@ -191,7 +190,7 @@ export default function IssuePage() {
       </div>
       <Show when={issueQuery.isLoading}><div class="mystery-card p-6 text-neutral-500">Loading issue…</div></Show>
       <Show when={issueQuery.error}><p class="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{issueQuery.error instanceof Error ? issueQuery.error.message : 'Failed to fetch issue.'} <Link.Root class="underline" href="/setup">Connect GitHub</Link.Root></p></Show>
-      <Show when={issue()}>{(current) => <>
+      <Show when={issue()}>{(current) => (<>
         <header class="mystery-card overflow-hidden dark:bg-neutral-900">
           <div class="border-b bg-white p-6 dark:bg-neutral-950">
             <div class="flex flex-wrap items-start justify-between gap-4">
@@ -286,7 +285,7 @@ export default function IssuePage() {
             </ol>
           </Show>
         </section>
-      </>}</Show>
+      </>)}</Show>
     </section>
   </main>;
 }
