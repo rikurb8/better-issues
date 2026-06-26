@@ -5,7 +5,7 @@ import { getRequestEvent, isServer } from 'solid-js/web';
 import { Markdown, type MarkdownRenderMode, markdownRenderModes } from '../components/markdown/Markdown';
 import { recordAgentInvocation } from '../lib/agent-activity';
 import { githubGraphql } from '../lib/github-api';
-import { analyzeIssueReadiness, type AnalyzeIssueReadinessResponse } from '../lib/pi-agent-api';
+import { analyzeIssueReadiness, listSkills, runSkill, type AnalyzeIssueReadinessResponse, type RunSkillResponse, type SkillMetadata } from '../lib/pi-agent-api';
 
 type RenderModeOption = (typeof markdownRenderModes)[number];
 
@@ -139,6 +139,74 @@ export default function IssuePage() {
   const [readinessError, setReadinessError] = createSignal<string | null>(null);
   const [readinessLoading, setReadinessLoading] = createSignal(false);
 
+  const skillsQuery = createQuery<SkillMetadata[]>(() => ({
+    queryKey: ['pi-agent', 'skills'],
+    enabled: !isServer,
+    staleTime: 5 * 60_000,
+    queryFn: async () => (await listSkills()).skills,
+  }));
+  const [selectedSkill, setSelectedSkill] = createSignal<string>('');
+  const [skillInstructions, setSkillInstructions] = createSignal('');
+  const [skillPostComment, setSkillPostComment] = createSignal(false);
+  const [skillResult, setSkillResult] = createSignal<RunSkillResponse | null>(null);
+  const [skillError, setSkillError] = createSignal<string | null>(null);
+  const [skillRunning, setSkillRunning] = createSignal(false);
+
+  const effectiveSkill = createMemo(() => {
+    const skills = skillsQuery.data ?? [];
+    const chosen = selectedSkill();
+    if (chosen && skills.some((skill) => skill.name === chosen)) return chosen;
+    return skills[0]?.name ?? '';
+  });
+
+  async function onRunSkill() {
+    const current = issue();
+    const skill = effectiveSkill();
+    if (!current || !skill) return;
+    setSkillRunning(true);
+    setSkillError(null);
+    const target = { kind: 'issue' as const, owner: parts().owner, repo: parts().name, number: current.number, title: current.title, url: current.url };
+    try {
+      const response = await runSkill({
+        skill,
+        instructions: skillInstructions().trim() || undefined,
+        postComment: skillPostComment(),
+        owner: parts().owner,
+        repo: parts().name,
+        number: current.number,
+        title: current.title,
+        body: current.body,
+        labels: current.labels.nodes.map((label) => label.name),
+        comments: current.comments.nodes.map((comment) => ({ author: comment.author?.login, body: comment.body ?? '', createdAt: comment.createdAt })),
+      });
+      setSkillResult(response);
+      recordAgentInvocation({
+        agent: 'pi',
+        action: `run-skill:${skill}`,
+        workflow: `Run skill: ${skill}`,
+        status: 'succeeded',
+        target,
+        summary: `Ran skill "${skill}" on ${parts().owner}/${parts().name}#${current.number}.`,
+        resultLabel: skill,
+        commentUrl: response.commentUrl,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to run skill.';
+      setSkillError(message);
+      recordAgentInvocation({
+        agent: 'pi',
+        action: `run-skill:${skill}`,
+        workflow: `Run skill: ${skill}`,
+        status: 'failed',
+        target,
+        summary: message,
+        resultLabel: skill,
+      });
+    } finally {
+      setSkillRunning(false);
+    }
+  }
+
   async function onAnalyzeReadiness() {
     const current = issue();
     if (!current) return;
@@ -240,6 +308,60 @@ export default function IssuePage() {
           </div>
           <Show when={analysis().commentUrl}><p class="mt-4 text-sm"><Link.Root class="font-medium underline" href={analysis().commentUrl ?? ''} target="_blank">Posted GitHub comment</Link.Root></p></Show>
         </section>}</Show>
+
+        <section class="mystery-card p-5 dark:bg-neutral-900">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-wide text-neutral-500">Run a skill</p>
+              <h2 class="mt-1 text-xl font-semibold">Run a repository skill against this issue</h2>
+            </div>
+          </div>
+          <Show when={skillsQuery.error}><p class="mt-3 text-sm text-red-700 dark:text-red-300">{skillsQuery.error instanceof Error ? skillsQuery.error.message : 'Failed to load skills.'}</p></Show>
+          <Show when={skillsQuery.isLoading}><p class="mt-3 text-sm text-neutral-500">Loading skills…</p></Show>
+          <Show when={!skillsQuery.isLoading && (skillsQuery.data?.length ?? 0) === 0}><p class="mt-3 text-sm text-neutral-500">No skills available from the configured skills path.</p></Show>
+          <Show when={(skillsQuery.data?.length ?? 0) > 0}>
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+              <label class="grid gap-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Skill
+                <select
+                  class="rounded-xl border bg-white px-3 py-2 text-neutral-950 shadow-sm dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                  value={effectiveSkill()}
+                  onChange={(event) => setSelectedSkill(event.currentTarget.value)}
+                >
+                  <For each={skillsQuery.data}>{(skill) => <option value={skill.name}>{skill.name}</option>}</For>
+                </select>
+              </label>
+              <div class="text-sm text-neutral-600 dark:text-neutral-400">
+                <p class="font-medium text-neutral-700 dark:text-neutral-300">Description</p>
+                <p class="mt-1">{skillsQuery.data?.find((skill) => skill.name === effectiveSkill())?.description ?? ''}</p>
+              </div>
+            </div>
+            <label class="mt-4 grid gap-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Additional instructions (optional)
+              <textarea
+                class="min-h-20 rounded-xl border bg-white px-3 py-2 text-neutral-950 shadow-sm dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                value={skillInstructions()}
+                onInput={(event) => setSkillInstructions(event.currentTarget.value)}
+                placeholder="Anything extra the skill should consider…"
+              />
+            </label>
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <label class="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+                <input type="checkbox" checked={skillPostComment()} onChange={(event) => setSkillPostComment(event.currentTarget.checked)} />
+                Post output as a GitHub comment
+              </label>
+              <button type="button" class="rounded-lg bg-neutral-950 px-4 py-2 font-medium text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-neutral-950" disabled={skillRunning() || !effectiveSkill()} onClick={onRunSkill}>{skillRunning() ? 'Running…' : 'Run skill'}</button>
+            </div>
+          </Show>
+          <Show when={skillError()}>{(message) => <p class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">{message()}</p>}</Show>
+          <Show when={skillResult()}>{(result) => <div class="mt-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="text-xs uppercase tracking-wide text-neutral-500">Output from {result().skill.name}</p>
+              <Show when={result().commentUrl}><Link.Root class="text-sm font-medium underline" href={result().commentUrl ?? ''} target="_blank">Posted GitHub comment</Link.Root></Show>
+            </div>
+            <Markdown body={result().text} mode={renderMode()} />
+          </div>}</Show>
+        </section>
 
         <section class="space-y-4">
           <div class="flex flex-wrap items-end justify-between gap-3">
