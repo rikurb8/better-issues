@@ -18,7 +18,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: apps/app/Dockerfile
+      dockerfile: packages/web/Dockerfile
     ports:
       - "3001:3001"
     environment:
@@ -30,12 +30,12 @@ services:
     volumes:
       - .:/workspace
       - pnpm-store:/pnpm/store
-      - app-data:/workspace/apps/app/.data
+      - app-data:/workspace/packages/web/.data
     working_dir: /workspace
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm --filter @work-hub/app db:migrate && pnpm --filter @work-hub/app dev --host 0.0.0.0"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @work-hub/web db:migrate && pnpm --filter @work-hub/web dev --host 0.0.0.0"
 volumes:
   pnpm-store:
   app-data:

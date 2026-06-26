@@ -3,7 +3,7 @@ import { summarizeThread } from './summarize-thread.action';
 import type { GitHubThreadContext } from './types';
 
 if (process.argv.includes('--help')) {
-  console.log('Example: pnpm --filter @work-hub/app tsx src/server/pi-agent/actions/example-runner.ts');
+  console.log('Example: pnpm --filter @work-hub/web tsx src/server/pi-agent/actions/example-runner.ts');
   process.exit(0);
 }
 

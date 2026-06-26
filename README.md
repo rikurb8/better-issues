@@ -19,11 +19,11 @@ Open http://localhost:3001.
 
 ## Current scaffold
 
-- `apps/app` — SolidStart full-stack app
-- `apps/app/src/server/github` — Octokit GraphQL/REST service layer
-- `apps/app/src/server/pi-agent` — Pi SDK adapter boundary and runnable example actions
-- `apps/app/src/components/ui` — Tailwind/Kobalte-ready internal UI layer
-- `apps/app/src/components/markdown` — GitHub markdown renderer placeholder
+- `packages/web` — SolidStart full-stack web app
+- `packages/web/src/server/github` — Octokit GraphQL/REST service layer
+- `packages/web/src/server/pi-agent` — Pi SDK adapter boundary and runnable example actions
+- `packages/web/src/components/ui` — Tailwind/Kobalte-ready internal UI layer
+- `packages/web/src/components/markdown` — GitHub markdown renderer placeholder
 
 ## GitHub authentication
 

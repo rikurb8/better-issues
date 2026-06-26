@@ -14,7 +14,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'pnpm --filter @work-hub/app dev --host 127.0.0.1',
+    command: 'pnpm --filter @work-hub/web dev --host 127.0.0.1',
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: true,
     timeout: 30_000,
