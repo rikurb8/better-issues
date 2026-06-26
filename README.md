@@ -25,16 +25,23 @@ Open http://localhost:3001.
 - `apps/app/src/components/ui` — Tailwind/Kobalte-ready internal UI layer
 - `apps/app/src/components/markdown` — GitHub markdown renderer placeholder
 
-## Environment
+## GitHub authentication
 
-Copy `.env.example` and set values as needed:
+The recommended path is GitHub OAuth Device Flow from `/setup`. The app opens `https://github.com/login/device`, shows a short code, then stores the OAuth token server-side only at `${APP_DATA_DIR || ".data"}/auth/github.json` with restrictive file permissions where supported. `.data/` is gitignored.
+
+This v1 auth model is local-only and single-user per running instance: whoever connects GitHub owns that local app instance. Credentials stay on the user's machine and are never stored in browser localStorage/sessionStorage or sent to browser JavaScript. Use **Disconnect GitHub** to delete the local stored token.
+
+The OAuth app must have Device Flow enabled and requests exactly `repo read:user`. The client ID defaults to `Ov23liQVEcCGHU1uxAGI` and can be overridden with `GITHUB_OAUTH_CLIENT_ID`; no client secret is used. Organisation repositories may require user access, org OAuth App approval, and SAML/SSO authorization depending on org policy.
+
+Optional environment values:
 
 ```bash
+# Experimental/dev fallback only; not the normal onboarding path.
 GITHUB_TOKEN=github_pat_xxx
+GITHUB_OAUTH_CLIENT_ID=Ov23liQVEcCGHU1uxAGI
+APP_DATA_DIR=.data
 PI_API_KEY=...
 ```
-
-The app is designed for local-only auth: whoever connects GitHub in the local session owns the running instance. Logout/reset should clear local credential/cache state; durable changes live in GitHub.
 
 ## Verification
 
