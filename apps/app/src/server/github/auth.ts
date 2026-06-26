@@ -1,11 +1,17 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { createGitHubClients } from './client';
 
 const CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID || 'Ov23liQVEcCGHU1uxAGI';
 const SCOPES = 'repo read:user';
 const TOKEN_PATH = join(process.env.APP_DATA_DIR || '.data', 'auth', 'github.json');
 
 type StoredAuth = { accessToken: string; tokenType?: string; scope?: string; username?: string; savedAt: string };
+
+async function getAuthenticatedUsername(token: string) {
+  const { data } = await createGitHubClients(token).rest.users.getAuthenticated();
+  return data.login ?? null;
+}
 
 export async function readStoredGitHubAuth(): Promise<StoredAuth | null> {
   try { return JSON.parse(await readFile(TOKEN_PATH, 'utf8')) as StoredAuth; } catch { return null; }
@@ -26,13 +32,13 @@ export async function resolveGitHubToken() {
 export async function getAuthStatus() {
   const token = await resolveGitHubToken();
   if (!token) return { authenticated: false, username: null, source: null };
-  const response = await fetch('https://api.github.com/user', { headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json' } });
-  if (!response.ok) {
+  try {
+    const username = await getAuthenticatedUsername(token);
+    return { authenticated: true, username, source: (await readStoredGitHubAuth())?.accessToken ? 'oauth' : 'env' };
+  } catch {
     if ((await readStoredGitHubAuth())?.accessToken) await deleteStoredGitHubAuth();
     return { authenticated: false, username: null, source: null, invalid: true };
   }
-  const user = await response.json() as { login?: string };
-  return { authenticated: true, username: user.login ?? null, source: (await readStoredGitHubAuth())?.accessToken ? 'oauth' : 'env' };
 }
 
 export async function startDeviceFlow() {
@@ -55,9 +61,7 @@ export async function pollDeviceFlow(deviceCode: string) {
   if (!response.ok) throw new Error('Unable to complete GitHub Device Flow.');
   if (payload.error) return { status: payload.error, message: payload.error_description, interval: payload.interval };
   if (!payload.access_token) return { status: 'authorization_pending' };
-  const userResponse = await fetch('https://api.github.com/user', { headers: { authorization: `Bearer ${payload.access_token}`, accept: 'application/vnd.github+json' } });
-  if (!userResponse.ok) throw new Error('GitHub accepted the login, but user lookup failed.');
-  const user = await userResponse.json() as { login?: string };
-  await writeStoredGitHubAuth({ accessToken: payload.access_token, tokenType: payload.token_type, scope: payload.scope, username: user.login });
-  return { status: 'success', username: user.login ?? null };
+  const username = await getAuthenticatedUsername(payload.access_token).catch(() => { throw new Error('GitHub accepted the login, but user lookup failed.'); });
+  await writeStoredGitHubAuth({ accessToken: payload.access_token, tokenType: payload.token_type, scope: payload.scope, username: username ?? undefined });
+  return { status: 'success', username };
 }

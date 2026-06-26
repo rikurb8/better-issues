@@ -35,7 +35,7 @@ function renderMarkdown(body?: string) {
 
 const modeClass: Record<MarkdownRenderMode, string> = {
   github: 'markdown-github',
-  prose: 'markdown-prose border-violet-200 bg-gradient-to-br from-white to-violet-50/40 p-7 text-[16px] shadow-sm dark:border-violet-900/60 dark:from-neutral-900 dark:to-violet-950/20',
+  prose: 'markdown-prose border-neutral-200 bg-white p-7 text-[16px] shadow-sm dark:border-neutral-700 dark:bg-neutral-900',
   card: 'markdown-card border-neutral-200 bg-white p-6 shadow-lg shadow-neutral-200/60 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-black/30',
   dense: 'markdown-dense p-4 text-sm',
 };

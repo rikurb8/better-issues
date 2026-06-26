@@ -23,13 +23,26 @@ export default function Setup() {
   async function start() {
     cancelled = false;
     setWaiting(true);
-    setStatus('Opening GitHub in your browser…');
+    setStatus('Preparing a GitHub sign-in code…');
     const response = await fetch('/api/github?action=start-device');
     const next = await response.json();
     if (!response.ok) throw new Error(next.error ?? 'Failed to start GitHub login.');
     setFlow(next);
-    window.open(next.verification_uri_complete ?? next.verification_uri, '_blank', 'noopener,noreferrer');
+    setStatus('Copy the code, then open GitHub to authorize this app.');
     void poll(next, Date.now() + next.expires_in * 1000);
+  }
+
+  async function copyCode() {
+    const code = flow()?.user_code;
+    if (!code) return;
+    await navigator.clipboard?.writeText(code);
+    setStatus('Code copied. Open GitHub and paste it when prompted.');
+  }
+
+  function openGitHub() {
+    const current = flow();
+    if (!current) return;
+    window.open(current.verification_uri_complete ?? current.verification_uri, '_blank', 'noopener,noreferrer');
   }
 
   async function poll(current: DeviceStart, expiresAt: number) {
@@ -39,7 +52,14 @@ export default function Setup() {
       const response = await fetch('/api/github', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'poll-device', deviceCode: current.device_code }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? 'GitHub login failed.');
-      if (result.status === 'success') { setUsername(result.username); setStatus(`Connected as ${result.username}.`); setWaiting(false); sessionStorage.removeItem('work_hub_query_cache_v1'); return; }
+      if (result.status === 'success') {
+        setUsername(result.username);
+        setFlow(null);
+        setStatus(`Connected as ${result.username}. Connection complete — you're ready to fetch repositories.`);
+        setWaiting(false);
+        sessionStorage.removeItem('work_hub_query_cache_v1');
+        return;
+      }
       if (result.status === 'slow_down') interval += 5;
       if (result.status === 'expired_token' || result.status === 'access_denied') { setStatus(result.message ?? 'GitHub login was cancelled or expired.'); setWaiting(false); return; }
       setStatus(result.status === 'slow_down' ? 'GitHub asked us to slow down. Still waiting for authorization…' : 'Waiting for authorization…');
@@ -62,13 +82,20 @@ export default function Setup() {
       <p class="text-neutral-600">Use GitHub Device Flow for this local, single-user app. Tokens stay server-side on this machine and are never stored in browser storage.</p>
       <div class="mystery-card space-y-4 p-6">
         <p class="font-medium">{status()}</p>
-        <Show when={flow()}>{(current) => <div class="rounded-xl border bg-neutral-50 p-4">
-          <p>If GitHub did not open, visit <Link.Root class="underline" href={current().verification_uri} target="_blank">{current().verification_uri}</Link.Root></p>
-          <p class="mt-3 text-sm uppercase tracking-wide text-neutral-500">Enter code</p>
-          <p class="font-mono text-3xl font-semibold tracking-widest">{current().user_code}</p>
+        <Show when={flow()}>{(current) => <div class="space-y-4 rounded-xl border bg-neutral-50 p-4">
+          <div>
+            <p class="text-sm uppercase tracking-wide text-neutral-500">Your one-time GitHub code</p>
+            <p class="mt-1 font-mono text-4xl font-semibold tracking-widest">{current().user_code}</p>
+          </div>
+          <p class="text-sm text-neutral-600">Copy this code, then open GitHub. GitHub will ask you to paste it before approving access.</p>
+          <div class="flex flex-wrap gap-3">
+            <Button.Root class="rounded-lg border border-neutral-300 bg-neutral-50 px-4 py-2 font-medium text-neutral-950 shadow-sm transition hover:border-neutral-400 hover:bg-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800" onClick={copyCode}>Copy code</Button.Root>
+            <Button.Root class="rounded-lg bg-neutral-950 px-4 py-2 font-semibold text-white shadow-sm hover:bg-neutral-800 dark:bg-white dark:text-neutral-950" onClick={openGitHub}>Open GitHub</Button.Root>
+          </div>
+          <p class="text-xs text-neutral-500">Or visit <Link.Root class="underline" href={current().verification_uri} target="_blank">{current().verification_uri}</Link.Root> manually.</p>
         </div>}</Show>
         <div class="flex flex-wrap gap-3">
-          <Button.Root class="rounded-lg bg-neutral-950 px-4 py-2 text-white disabled:opacity-60 dark:bg-white dark:text-neutral-950" disabled={waiting()} onClick={start}>{username() ? 'Reconnect GitHub' : 'Connect GitHub'}</Button.Root>
+          <Button.Root class="rounded-lg bg-neutral-950 px-5 py-3 font-semibold text-white shadow-sm ring-1 ring-neutral-950/10 transition hover:-translate-y-0.5 hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:translate-y-0 disabled:opacity-60 dark:bg-white dark:text-neutral-950" disabled={waiting()} onClick={start}>{username() ? 'Reconnect GitHub' : 'Connect GitHub'}</Button.Root>
           <Show when={username()}><Button.Root class="rounded-lg border border-neutral-300 px-4 py-2 font-medium" onClick={disconnect}>Disconnect GitHub</Button.Root></Show>
           <Show when={username()}><Link.Root class="rounded-lg border border-neutral-300 px-4 py-2 font-medium" href="/repos">Fetch repositories</Link.Root></Show>
         </div>

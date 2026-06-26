@@ -7,6 +7,16 @@
 :root.dark { color-scheme: dark; }
 body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .markdown-body { background: transparent; font-size: 15px; line-height: 1.65; }
+.markdown-body a { color: #24292f; text-decoration: underline; }
+::selection { background: #24292f; color: #fff; }
+.dark ::selection { background: #f0f6fc; color: #010409; }
+
+@layer components {
+  .mystery-card { border-radius: 1.5rem; border: 1px solid rgb(229 229 229); background: rgb(255 255 255 / 0.94); box-shadow: 0 18px 55px rgb(15 23 42 / 0.06); backdrop-filter: blur(12px); }
+  .dark .mystery-card { border-color: #30363d; background: rgb(13 17 23 / 0.9); box-shadow: 0 18px 55px rgb(0 0 0 / 0.35); }
+  .mystery-chip { border: 1px solid rgb(212 212 212); border-radius: 999px; font-size: 0.75rem; letter-spacing: 0.24em; text-transform: uppercase; }
+  .dark .mystery-chip { border-color: #30363d; }
+}
 
 @layer utilities {
   .dark .bg-surface { background-color: #010409; }
@@ -25,10 +35,10 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, B
   .dark .text-neutral-600 { color: #c9d1d9; }
   .dark .text-neutral-500 { color: #8b949e; }
   .dark .text-neutral-300 { color: #c9d1d9; }
-  .dark .text-violet-700 { color: #a5d6ff; }
-  .dark .text-violet-300 { color: #a5d6ff; }
+  .dark .text-violet-700,
+  .dark .text-violet-300 { color: #f0f6fc; }
   .dark .text-red-700 { color: #ff7b72; }
-  .dark .text-green-700, .dark .text-green-800 { color: #7ee787; }
+  .dark .text-green-700, .dark .text-green-800 { color: #c9d1d9; }
 
   .dark .border { border-color: #30363d; }
   .dark .border-neutral-200, .dark .border-neutral-300, .dark .border-neutral-700 { border-color: #30363d; }
@@ -39,7 +49,7 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, B
   .dark .shadow-lg { box-shadow: 0 16px 40px rgb(0 0 0 / 0.55); }
 
   .dark .markdown-body { color: #f0f6fc; background-color: #0d1117; }
-  .dark .markdown-body a { color: #58a6ff; }
+  .dark .markdown-body a { color: #f0f6fc; text-decoration: underline; }
   .dark .markdown-body h1,
   .dark .markdown-body h2,
   .dark .markdown-body h3,
@@ -61,12 +71,13 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, B
   .markdown-body.markdown-prose h2,
   .markdown-body.markdown-prose h3 { letter-spacing: -0.025em; }
   .markdown-body.markdown-prose p { margin-bottom: 1.1em; }
-  .markdown-body.markdown-prose blockquote { border-left-width: 4px; border-radius: 0.75rem; background: rgb(139 92 246 / 0.08); padding: 0.75rem 1rem; }
-  .dark .markdown-body.markdown-prose blockquote { background: rgb(88 166 255 / 0.10); }
+  .markdown-body.markdown-prose blockquote { border-left-width: 4px; border-radius: 0.75rem; background: rgb(246 248 250); padding: 0.75rem 1rem; }
+  .dark .markdown-body.markdown-prose blockquote { background: #161b22; }
   .markdown-body.markdown-prose code { border-radius: 0.375rem; padding: 0.15rem 0.35rem; }
 
   .markdown-body.markdown-card { position: relative; overflow: hidden; }
-  .markdown-body.markdown-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, #8b5cf6, #06b6d4, #22c55e); }
+  .markdown-body.markdown-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: #24292f; }
+  .dark .markdown-body.markdown-card::before { background: #f0f6fc; }
   .markdown-body.markdown-card pre { border-radius: 0.9rem; border: 1px solid #e5e5e5; }
   .dark .markdown-body.markdown-card { background-color: #0d1117; }
   .dark .markdown-body.markdown-card pre { border-color: #30363d; }
