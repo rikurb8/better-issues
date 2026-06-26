@@ -3,7 +3,9 @@ import { createQuery } from '@tanstack/solid-query';
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import { getRequestEvent, isServer } from 'solid-js/web';
 import { Markdown, type MarkdownRenderMode, markdownRenderModes } from '../components/markdown/Markdown';
+import { recordAgentInvocation } from '../lib/agent-activity';
 import { githubGraphql } from '../lib/github-api';
+import { analyzeIssueReadiness, type AnalyzeIssueReadinessResponse } from '../lib/pi-agent-api';
 
 type RenderModeOption = (typeof markdownRenderModes)[number];
 
@@ -133,10 +135,59 @@ export default function IssuePage() {
   const issue = createMemo(() => issueQuery.data?.issue ?? null);
   const repoHref = createMemo(() => `/repos/${encodeURIComponent(parts().owner)}/${encodeURIComponent(parts().name)}`);
   const [renderMode, setRenderMode] = createSignal<MarkdownRenderMode>('card');
+  const [readiness, setReadiness] = createSignal<AnalyzeIssueReadinessResponse | null>(null);
+  const [readinessError, setReadinessError] = createSignal<string | null>(null);
+  const [readinessLoading, setReadinessLoading] = createSignal(false);
+
+  async function onAnalyzeReadiness() {
+    const current = issue();
+    if (!current) return;
+    setReadinessLoading(true);
+    setReadinessError(null);
+    try {
+      const response = await analyzeIssueReadiness({
+        owner: parts().owner,
+        repo: parts().name,
+        number: current.number,
+        title: current.title,
+        body: current.body,
+        labels: current.labels.nodes.map((label) => label.name),
+        comments: current.comments.nodes.map((comment) => ({ author: comment.author?.login, body: comment.body ?? '', createdAt: comment.createdAt })),
+      });
+      setReadiness(response);
+      recordAgentInvocation({
+        agent: 'pi',
+        action: 'analyze-issue-readiness',
+        workflow: 'Analyze issue readiness',
+        status: 'succeeded',
+        target: { kind: 'issue', owner: parts().owner, repo: parts().name, number: current.number, title: current.title, url: current.url },
+        summary: response.result.summary,
+        resultLabel: response.result.status,
+        commentUrl: response.commentUrl,
+        details: { reasons: response.result.reasons, recommendations: response.result.recommendations },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to analyze issue readiness.';
+      setReadinessError(message);
+      recordAgentInvocation({
+        agent: 'pi',
+        action: 'analyze-issue-readiness',
+        workflow: 'Analyze issue readiness',
+        status: 'failed',
+        target: { kind: 'issue', owner: parts().owner, repo: parts().name, number: current.number, title: current.title, url: current.url },
+        summary: message,
+      });
+    } finally {
+      setReadinessLoading(false);
+    }
+  }
 
   return <main class="min-h-screen bg-surface px-6 py-8 text-neutral-950">
     <section class="mx-auto max-w-5xl space-y-6">
-      <Link.Root class="text-sm font-medium text-neutral-950 dark:text-neutral-100" href={repoHref()}>← Back to repository</Link.Root>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <Link.Root class="text-sm font-medium text-neutral-950 dark:text-neutral-100" href={repoHref()}>← Back to repository</Link.Root>
+        <Link.Root class="text-sm font-medium text-neutral-950 underline dark:text-neutral-100" href="/agent">Agent activity</Link.Root>
+      </div>
       <Show when={issueQuery.isLoading}><div class="mystery-card p-6 text-neutral-500">Loading issue…</div></Show>
       <Show when={issueQuery.error}><p class="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{issueQuery.error instanceof Error ? issueQuery.error.message : 'Failed to fetch issue.'} <Link.Root class="underline" href="/setup">Connect GitHub</Link.Root></p></Show>
       <Show when={issue()}>{(current) => <>
@@ -148,7 +199,10 @@ export default function IssuePage() {
                 <h1 class="mt-1 max-w-4xl text-4xl font-semibold tracking-tight">{current().title}</h1>
                 <p class="mt-3 text-sm text-neutral-600">Opened by <span class="font-medium text-neutral-900">{current().author?.login ?? 'unknown'}</span> on {relativeDate(current().createdAt)} · updated {relativeDate(current().updatedAt)}</p>
               </div>
-              <Link.Root class="rounded-lg bg-neutral-950 px-4 py-2 text-white dark:bg-white dark:text-neutral-950" href={current().url} target="_blank">Open on GitHub</Link.Root>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" class="rounded-lg border border-neutral-300 bg-white px-4 py-2 font-medium text-neutral-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" disabled={readinessLoading()} onClick={onAnalyzeReadiness}>{readinessLoading() ? 'Analyzing…' : 'Analyze issue readiness'}</button>
+                <Link.Root class="rounded-lg bg-neutral-950 px-4 py-2 text-white dark:bg-white dark:text-neutral-950" href={current().url} target="_blank">Open on GitHub</Link.Root>
+              </div>
             </div>
             <div class="mt-5 flex flex-wrap gap-2">
               <span class="rounded-full border border-neutral-300 bg-white px-3 py-1 text-sm font-medium text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">{current().state}</span>
@@ -161,6 +215,31 @@ export default function IssuePage() {
             <InfoCard label="Markdown renderer" value={markdownRenderModes.find((mode) => mode.value === renderMode())?.label ?? 'Card'} />
           </div>
         </header>
+
+        <Show when={readinessError()}>{(message) => <p class="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">{message()}</p>}</Show>
+
+        <Show when={readiness()}>{(analysis) => <section class="mystery-card p-5 dark:bg-neutral-900">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-wide text-neutral-500">Pi Agent readiness</p>
+              <h2 class="mt-1 text-xl font-semibold">{analysis().result.summary}</h2>
+            </div>
+            <span class="rounded-full border border-neutral-300 bg-white px-3 py-1 text-sm font-semibold text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">{analysis().result.status}</span>
+          </div>
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <h3 class="font-semibold">Reasons</h3>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-700 dark:text-neutral-300"><For each={analysis().result.reasons}>{(reason) => <li>{reason}</li>}</For></ul>
+            </div>
+            <Show when={analysis().result.recommendations?.length}>
+              <div>
+                <h3 class="font-semibold">Recommendations</h3>
+                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-700 dark:text-neutral-300"><For each={analysis().result.recommendations}>{(item) => <li>{item}</li>}</For></ul>
+              </div>
+            </Show>
+          </div>
+          <Show when={analysis().commentUrl}><p class="mt-4 text-sm"><Link.Root class="font-medium underline" href={analysis().commentUrl ?? ''} target="_blank">Posted GitHub comment</Link.Root></p></Show>
+        </section>}</Show>
 
         <section class="space-y-4">
           <div class="flex flex-wrap items-end justify-between gap-3">

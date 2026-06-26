@@ -6,6 +6,7 @@ export default function Navbar() {
       <Link.Root class="mr-2 text-sm font-semibold tracking-tight" href="/">Work Hub</Link.Root>
       <Link.Root class="text-sm text-neutral-600 underline underline-offset-4 dark:text-neutral-300" href="/">Home</Link.Root>
       <Link.Root class="text-sm text-neutral-600 underline underline-offset-4 dark:text-neutral-300" href="/repos">Repos</Link.Root>
+      <Link.Root class="text-sm text-neutral-600 underline underline-offset-4 dark:text-neutral-300" href="/agent">Agent</Link.Root>
       <Link.Root class="text-sm text-neutral-600 underline underline-offset-4 dark:text-neutral-300" href="/setup">Connect</Link.Root>
     </div>
   </nav>;

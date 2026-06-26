@@ -1,0 +1,71 @@
+version: '3'
+
+vars:
+  APP: '@work-hub/app'
+  DB_URL: postgres://better_issues:better_issues@localhost:55432/better_issues
+
+env:
+  DATABASE_URL: '{{.DB_URL}}'
+
+tasks:
+  install:
+    desc: Install workspace dependencies
+    cmds:
+      - pnpm install
+
+  dev:
+    desc: Run the SolidStart app locally on http://localhost:3000
+    cmds:
+      - DATABASE_URL={{.DB_URL}} pnpm --filter {{.APP}} dev
+
+  db:up:
+    desc: Start local Postgres on localhost:55432
+    cmds:
+      - docker compose up -d postgres
+      - |
+        for i in $(seq 1 30); do
+          if docker compose exec -T postgres pg_isready -U better_issues -d better_issues >/dev/null 2>&1; then
+            exit 0
+          fi
+          sleep 1
+        done
+        docker compose logs postgres
+        exit 1
+
+  db:migrate:
+    desc: Run Kysely migrations against local Postgres
+    deps: [db:up]
+    cmds:
+      - DATABASE_URL={{.DB_URL}} pnpm --filter {{.APP}} db:migrate
+
+  db:rollback:
+    desc: Roll back the latest Kysely migration
+    cmds:
+      - DATABASE_URL={{.DB_URL}} pnpm --filter {{.APP}} db:rollback
+
+  lint:
+    desc: Typecheck the app
+    cmds:
+      - pnpm --filter {{.APP}} lint
+
+  e2e:
+    desc: Run Playwright E2E tests with mocked external services
+    cmds:
+      - pnpm e2e
+
+  e2e:ui:
+    desc: Run Playwright E2E tests in UI mode
+    cmds:
+      - pnpm e2e:ui
+
+  verify:
+    desc: Run lint and E2E smoke suite
+    cmds:
+      - task: lint
+      - task: e2e
+
+  local:ready:
+    desc: Prepare local dev dependencies and database
+    cmds:
+      - task: install
+      - task: db:migrate

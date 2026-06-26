@@ -96,7 +96,10 @@ export default function Home() {
             <h2 class="text-2xl font-semibold">Favorite repositories</h2>
             <p class="mt-1 text-sm text-neutral-500">Saved in this browser.</p>
           </div>
-          <Link.Root class="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium dark:border-neutral-700" href="/repos">Add favorites</Link.Root>
+          <div class="flex gap-2">
+            <Link.Root class="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium dark:border-neutral-700" href="/agent">Agent activity</Link.Root>
+            <Link.Root class="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium dark:border-neutral-700" href="/repos">Add favorites</Link.Root>
+          </div>
         </div>
 
         <Show when={favorites().length > 0} fallback={<div class="mt-6 rounded-2xl border bg-neutral-50 p-6 text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">No favorites yet.</div>}>

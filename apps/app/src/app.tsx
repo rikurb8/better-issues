@@ -6,6 +6,7 @@ import Setup from './routes/setup';
 import Repos from './routes/repos';
 import RepoPage from './routes/repo';
 import IssuePage from './routes/issue';
+import AgentPage from './routes/agent';
 import ThemeToggle from './components/ThemeToggle';
 import Navbar from './components/Navbar';
 
@@ -56,6 +57,7 @@ function Routes() {
   const path = pathname();
   if (path === '/setup') return <Setup />;
   if (path === '/repos') return <Repos />;
+  if (path === '/agent') return <AgentPage />;
   if (path.includes('/issues/')) return <IssuePage />;
   if (path.startsWith('/repos/')) return <RepoPage />;
   return <Home />;
