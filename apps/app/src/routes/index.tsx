@@ -76,6 +76,7 @@ export default function Home() {
   const activityQuery = createQuery<Record<string, FavoriteActivity>>(() => ({
     queryKey: ['github', 'favorite-repos-activity', favorites().map((repo) => `${repo.owner}/${repo.name}`).join(',')],
     enabled: !isServer && favorites().length > 0,
+    initialData: {},
     staleTime: 60_000,
     gcTime: 30 * 60_000,
     queryFn: async () => {

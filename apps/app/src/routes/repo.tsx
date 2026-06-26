@@ -89,7 +89,7 @@ function relativeDate(value: string) {
 
 export default function RepoPage() {
   const parts = createMemo(pathParts);
-  const [favoriteKeys, setFavoriteKeys] = createSignal(new Set(loadFavoriteRepos().map((repo) => `${repo.owner}/${repo.name}`)));
+  const [favoriteKeys, setFavoriteKeys] = createSignal(new Set(isServer ? [] : loadFavoriteRepos().map((repo) => `${repo.owner}/${repo.name}`)));
 
   function toggleFavorite(repo: RepoDetails) {
     const [owner, name] = repo.nameWithOwner.split('/');
@@ -101,9 +101,10 @@ export default function RepoPage() {
     const [owner, name] = repo.nameWithOwner.split('/');
     return favoriteKeys().has(`${owner}/${name}`);
   }
-  const repoQuery = createQuery<RepoDetails>(() => ({
+  const repoQuery = createQuery<RepoDetails | null>(() => ({
     queryKey: ['github', 'repo', parts().owner, parts().name],
     enabled: !isServer,
+    initialData: null,
     staleTime: 60_000,
     gcTime: 30 * 60_000,
     queryFn: async () => {

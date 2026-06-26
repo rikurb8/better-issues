@@ -1,6 +1,7 @@
 import { Button, Link } from '@kobalte/core';
 import { createQuery } from '@tanstack/solid-query';
 import { For, Show, createMemo, createSignal } from 'solid-js';
+import { isServer } from 'solid-js/web';
 import { loadFavoriteRepos, toggleFavoriteRepo } from '../lib/favorites';
 import { githubGraphql } from '../lib/github-api';
 
@@ -42,7 +43,7 @@ export default function Repos() {
   const [cursor, setCursor] = createSignal<string | null>(null);
   const [repos, setRepos] = createSignal<Repo[]>([]);
   const [pageInfo, setPageInfo] = createSignal<PageInfo>({ hasNextPage: false, endCursor: null });
-  const [favoriteKeys, setFavoriteKeys] = createSignal(new Set(loadFavoriteRepos().map((repo) => `${repo.owner}/${repo.name}`)));
+  const [favoriteKeys, setFavoriteKeys] = createSignal(new Set(isServer ? [] : loadFavoriteRepos().map((repo) => `${repo.owner}/${repo.name}`)));
   const normalizedSearch = createMemo(() => search().trim());
 
   function toggleFavorite(repo: Repo) {
@@ -57,6 +58,7 @@ export default function Repos() {
   const reposQuery = createQuery<{ nodes: Repo[]; pageInfo: PageInfo }>(() => ({
     queryKey: ['github', 'repos', normalizedSearch(), cursor()],
     enabled: false,
+    initialData: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     queryFn: async () => {

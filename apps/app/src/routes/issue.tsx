@@ -120,9 +120,10 @@ function InfoCard(props: { label: string; value: string }) {
 
 export default function IssuePage() {
   const parts = createMemo(pathParts);
-  const issueQuery = createQuery<IssueResponse>(() => ({
+  const issueQuery = createQuery<IssueResponse | null>(() => ({
     queryKey: ['github', 'issue', parts().owner, parts().name, parts().number],
     enabled: !isServer,
+    initialData: null,
     staleTime: 30_000,
     gcTime: 30 * 60_000,
     queryFn: async () => {
