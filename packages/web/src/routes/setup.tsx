@@ -7,6 +7,7 @@ type DeviceStart = { device_code: string; user_code: string; verification_uri: s
 export default function Setup() {
   const [status, setStatus] = createSignal('Checking GitHub connection…');
   const [username, setUsername] = createSignal<string | null>(null);
+  const [authSource, setAuthSource] = createSignal<string | null>(null);
   const [flow, setFlow] = createSignal<DeviceStart | null>(null);
   const [waiting, setWaiting] = createSignal(false);
   let cancelled = false;
@@ -17,7 +18,8 @@ export default function Setup() {
   async function refreshStatus() {
     const auth = await githubAuthStatus();
     setUsername(auth.username);
-    setStatus(auth.authenticated ? `Connected as ${auth.username ?? 'GitHub user'}.` : auth.invalid ? 'Stored GitHub token was invalid. Please reconnect.' : 'Connect your GitHub account to continue.');
+    setAuthSource(auth.source);
+    setStatus(auth.authenticated ? auth.source === 'github-app' ? `Connected via ${auth.username ?? 'GitHub App'}. Actions will use the app bot identity.` : `Connected as ${auth.username ?? 'GitHub user'}.` : auth.invalid ? auth.source === 'github-app' ? 'GitHub App configuration is invalid. Check your environment variables and private key.' : 'Stored GitHub token was invalid. Please reconnect.' : 'Connect your GitHub account to continue.');
   }
 
   async function start() {
@@ -79,7 +81,7 @@ export default function Setup() {
   return <main class="min-h-screen bg-surface px-6 py-10 text-neutral-950">
     <section class="mx-auto max-w-2xl space-y-6">
       <h1 class="text-3xl font-semibold">Connect GitHub</h1>
-      <p class="text-neutral-600">Use GitHub Device Flow for this local, single-user app. Tokens stay server-side on this machine and are never stored in browser storage.</p>
+      <p class="text-neutral-600">Use GitHub Device Flow for local user auth, or set <code>GITHUB_AUTH_MODE=app</code> to use a GitHub App installation token. Tokens stay server-side and are never stored in browser storage.</p>
       <div class="mystery-card space-y-4 p-6">
         <p class="font-medium">{status()}</p>
         <Show when={flow()}>{(current) => <div class="space-y-4 rounded-xl border bg-neutral-50 p-4">
@@ -95,8 +97,10 @@ export default function Setup() {
           <p class="text-xs text-neutral-500">Or visit <Link.Root class="underline" href={current().verification_uri} target="_blank">{current().verification_uri}</Link.Root> manually.</p>
         </div>}</Show>
         <div class="flex flex-wrap gap-3">
-          <Button.Root class="rounded-lg bg-neutral-950 px-5 py-3 font-semibold text-white shadow-sm ring-1 ring-neutral-950/10 transition hover:-translate-y-0.5 hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:translate-y-0 disabled:opacity-60 dark:bg-white dark:text-neutral-950" disabled={waiting()} onClick={start}>{username() ? 'Reconnect GitHub' : 'Connect GitHub'}</Button.Root>
-          <Show when={username()}><Button.Root class="rounded-lg border border-neutral-300 px-4 py-2 font-medium" onClick={disconnect}>Disconnect GitHub</Button.Root></Show>
+          <Show when={authSource() !== 'github-app'}>
+            <Button.Root class="rounded-lg bg-neutral-950 px-5 py-3 font-semibold text-white shadow-sm ring-1 ring-neutral-950/10 transition hover:-translate-y-0.5 hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:translate-y-0 disabled:opacity-60 dark:bg-white dark:text-neutral-950" disabled={waiting()} onClick={start}>{username() ? 'Reconnect GitHub' : 'Connect GitHub'}</Button.Root>
+            <Show when={username()}><Button.Root class="rounded-lg border border-neutral-300 px-4 py-2 font-medium" onClick={disconnect}>Disconnect GitHub</Button.Root></Show>
+          </Show>
           <Show when={username()}><Link.Root class="rounded-lg border border-neutral-300 px-4 py-2 font-medium" href="/repos">Fetch repositories</Link.Root></Show>
         </div>
       </div>

@@ -20,6 +20,16 @@ export async function POST({ request }: { request: Request }) {
   try {
     if (body.action === 'poll-device') return json(await pollDeviceFlow(String(body.deviceCode || '')));
     if (body.action === 'disconnect') { await deleteStoredGitHubAuth(); return json({ ok: true }); }
+    if (body.action === 'repos') {
+      const token = await resolveGitHubToken();
+      if (!token) return error('Connect GitHub before using the app.', 401);
+      const clients = createGitHubClients(token);
+      const response = await clients.rest.apps.listReposAccessibleToInstallation({ per_page: Number(body.first || 25), page: Number(body.page || 1) });
+      return json({
+        nodes: response.data.repositories.map((repo) => ({ id: String(repo.id), nameWithOwner: repo.full_name, name: repo.name, description: repo.description, isPrivate: repo.private, url: repo.html_url, owner: { login: repo.owner?.login ?? '' } })),
+        pageInfo: { hasNextPage: Boolean(response.headers.link?.includes('rel="next"')), endCursor: String(Number(body.page || 1) + 1) },
+      });
+    }
     if (body.action === 'graphql') {
       const token = await resolveGitHubToken();
       if (!token) return error('Connect GitHub before using the app.', 401);

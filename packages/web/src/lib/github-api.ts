@@ -9,7 +9,7 @@ export async function githubGraphql<T>(query: string, variables?: Record<string,
   return payload as T;
 }
 
-export async function githubAuthStatus(): Promise<{ authenticated: boolean; username: string | null; source: 'oauth' | 'env' | null; invalid?: boolean }> {
+export async function githubAuthStatus(): Promise<{ authenticated: boolean; username: string | null; source: 'oauth' | 'env' | 'github-app' | null; invalid?: boolean }> {
   const response = await fetch('/api/github?action=status');
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error ?? 'Failed to check GitHub auth.');

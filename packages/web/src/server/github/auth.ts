@@ -1,5 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { isGitHubAppAuthMode, resolveGitHubAppToken } from './app-auth';
 import { createGitHubClients } from './client';
 
 const CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID || 'Ov23liQVEcCGHU1uxAGI';
@@ -25,11 +26,21 @@ export async function writeStoredGitHubAuth(auth: Omit<StoredAuth, 'savedAt'>) {
 export async function deleteStoredGitHubAuth() { await rm(TOKEN_PATH, { force: true }); }
 
 export async function resolveGitHubToken() {
+  if (isGitHubAppAuthMode()) return resolveGitHubAppToken();
   const stored = await readStoredGitHubAuth();
   return stored?.accessToken || process.env.GITHUB_TOKEN || '';
 }
 
 export async function getAuthStatus() {
+  if (isGitHubAppAuthMode()) {
+    try {
+      await resolveGitHubAppToken();
+      return { authenticated: true, username: process.env.GITHUB_APP_SLUG || 'GitHub App', source: 'github-app' };
+    } catch {
+      return { authenticated: false, username: null, source: 'github-app', invalid: true };
+    }
+  }
+
   const token = await resolveGitHubToken();
   if (!token) return { authenticated: false, username: null, source: null };
   try {
@@ -42,6 +53,7 @@ export async function getAuthStatus() {
 }
 
 export async function startDeviceFlow() {
+  if (isGitHubAppAuthMode()) throw new Error('Device Flow is disabled while GITHUB_AUTH_MODE=app.');
   const response = await fetch('https://github.com/login/device/code', {
     method: 'POST',
     headers: { accept: 'application/json', 'content-type': 'application/json' },
@@ -52,6 +64,7 @@ export async function startDeviceFlow() {
 }
 
 export async function pollDeviceFlow(deviceCode: string) {
+  if (isGitHubAppAuthMode()) throw new Error('Device Flow is disabled while GITHUB_AUTH_MODE=app.');
   const response = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: { accept: 'application/json', 'content-type': 'application/json' },

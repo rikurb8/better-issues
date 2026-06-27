@@ -3,7 +3,7 @@ import { createQuery } from '@tanstack/solid-query';
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import { isServer } from 'solid-js/web';
 import { loadFavoriteRepos, toggleFavoriteRepo } from '../lib/favorites';
-import { githubGraphql } from '../lib/github-api';
+import { githubAuthStatus, githubGraphql } from '../lib/github-api';
 
 const PAGE_SIZE = 25;
 
@@ -62,6 +62,18 @@ export default function Repos() {
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     queryFn: async () => {
+      const auth = await githubAuthStatus();
+      if (auth.source === 'github-app' && !normalizedSearch()) {
+        const response = await fetch('/api/github', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'repos', first: PAGE_SIZE, page: Number(cursor() || '1') }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error ?? 'Failed to fetch installation repositories.');
+        return payload as { nodes: Repo[]; pageInfo: PageInfo };
+      }
+      if (auth.source === 'github-app' && normalizedSearch()) throw new Error('Search is not available in GitHub App mode yet. Clear the search to list installed repositories.');
       if (normalizedSearch()) {
         const searchQuery = `${normalizedSearch()} in:name,description sort:updated-desc`;
         const payload = await githubGraphql<{ search: { nodes: Array<Repo | null>; pageInfo: PageInfo } }>(REPO_SEARCH_QUERY, { searchQuery, first: PAGE_SIZE, after: cursor() });
