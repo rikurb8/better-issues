@@ -2,7 +2,7 @@ import { Button, Link } from '@kobalte/core';
 import { createQuery } from '@tanstack/solid-query';
 import { For, Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { isServer } from 'solid-js/web';
-import { type FavoriteRepo, loadFavoriteRepos, saveFavoriteRepos } from '../lib/favorites';
+import { type FavoriteRepo, fetchFavoriteRepos, toggleFavoriteRepo } from '../lib/favorites';
 import { githubGraphql } from '../lib/github-api';
 
 type FavoriteActivity = {
@@ -57,8 +57,8 @@ export default function Home() {
   const [favorites, setFavorites] = createSignal<FavoriteRepo[]>([]);
 
   onMount(() => {
-    setFavorites(loadFavoriteRepos());
-    const syncFavorites = () => setFavorites(loadFavoriteRepos());
+    const syncFavorites = async () => setFavorites(await fetchFavoriteRepos());
+    void syncFavorites();
     window.addEventListener('favorite-repos-changed', syncFavorites);
     window.addEventListener('storage', syncFavorites);
     onCleanup(() => {
@@ -67,10 +67,9 @@ export default function Home() {
     });
   });
 
-  function removeFavorite(repo: FavoriteRepo) {
-    const next = favorites().filter((favorite) => favorite.owner !== repo.owner || favorite.name !== repo.name);
-    setFavorites(next);
-    saveFavoriteRepos(next);
+  async function removeFavorite(repo: FavoriteRepo) {
+    const result = await toggleFavoriteRepo(repo, true);
+    setFavorites(result.favorites);
   }
 
   const activityQuery = createQuery<Record<string, FavoriteActivity>>(() => ({
@@ -95,7 +94,7 @@ export default function Home() {
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 class="text-2xl font-semibold">Favorite repositories</h2>
-            <p class="mt-1 text-sm text-neutral-500">Saved in this browser.</p>
+            <p class="mt-1 text-sm text-neutral-500">Saved server-side and used by the mentions poller.</p>
           </div>
           <div class="flex gap-2">
             <Link.Root class="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium dark:border-neutral-700" href="/agent">Agent activity</Link.Root>

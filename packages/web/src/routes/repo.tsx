@@ -1,8 +1,8 @@
 import { Button, Link } from '@kobalte/core';
 import { createQuery } from '@tanstack/solid-query';
-import { For, Show, createMemo, createSignal } from 'solid-js';
+import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
 import { getRequestEvent, isServer } from 'solid-js/web';
-import { loadFavoriteRepos, toggleFavoriteRepo } from '../lib/favorites';
+import { fetchFavoriteRepos, toggleFavoriteRepo } from '../lib/favorites';
 import { githubGraphql } from '../lib/github-api';
 
 const REPO_QUERY = `
@@ -89,11 +89,12 @@ function relativeDate(value: string) {
 
 export default function RepoPage() {
   const parts = createMemo(pathParts);
-  const [favoriteKeys, setFavoriteKeys] = createSignal(new Set(isServer ? [] : loadFavoriteRepos().map((repo) => `${repo.owner}/${repo.name}`)));
+  const [favoriteKeys, setFavoriteKeys] = createSignal(new Set<string>());
+  onMount(async () => setFavoriteKeys(new Set((await fetchFavoriteRepos()).map((repo) => `${repo.owner}/${repo.name}`))));
 
-  function toggleFavorite(repo: RepoDetails) {
+  async function toggleFavorite(repo: RepoDetails) {
     const [owner, name] = repo.nameWithOwner.split('/');
-    const result = toggleFavoriteRepo({ owner, name, nameWithOwner: repo.nameWithOwner, url: repo.url, description: repo.description });
+    const result = await toggleFavoriteRepo({ owner, name, nameWithOwner: repo.nameWithOwner, url: repo.url, description: repo.description }, isFavorite(repo));
     setFavoriteKeys(new Set(result.favorites.map((favorite) => `${favorite.owner}/${favorite.name}`)));
   }
 
